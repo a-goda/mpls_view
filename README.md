@@ -5,9 +5,9 @@ The output is an Excel workbook, each workbook sheet contains a specific PE rela
 The analysis is done on log files of the commands output "show run" and "sh vlan" for each PE. Each PE on a separate log file.
 
 Inputs:
-	1) A directory that contains PEs' log file
-	2) Extension to filter files based on
+	1. A directory that contains PEs' log file
+	2. Extension to filter files based on
 	
 Outputs - on the same directory of log files:
-	1) MPLS overview Excel file
-	2) L3 interfaces Excel file
+	1. MPLS overview Excel file
+	2. L3 interfaces Excel file
