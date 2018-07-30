@@ -2118,6 +2118,7 @@ def process_pending_tables():
 def main():
     path = 'configs\\'
     file_extension = '.log'
+
     db_dump_file = 'db_dump.sql'
 
     global db_con, db_cur
