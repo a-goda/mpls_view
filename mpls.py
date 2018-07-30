@@ -79,8 +79,8 @@ def profile(fnc):
     """
     A decorator that uses cProfile to profile a function
 
-    :param fnc:
-    :return:
+    :param fnc: profiling function
+    :return: retun_values of inner function
     """
     def inner(*args, **kwargs):
         pr = cProfile.Profile()
@@ -94,11 +94,6 @@ def profile(fnc):
         print(s.getvalue())
         return return_vals
     return inner
-
-
-"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-                        Excel output functions
-"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 
 def prepare_workbooks_styles(wb_list):
@@ -161,11 +156,7 @@ def prepare_one_row_sheet_header(wbas, heads_tuple, freeze_pane='A2'):
         for cell in cells:
             cell.style = 'center_center_bold_12'
 
-    # wbas.freeze_panes = 'A' + str(wbas.max_row + 1)
     wbas.freeze_panes = freeze_pane
-
-    # Return next usable row, after header
-    # return wbas.max_row + 1
     return 2
 
 
@@ -247,11 +238,7 @@ def auto_column_width_vrf(ws, start_row=3, max_width=55, is_vrf_sheet=True):
 
             i = i + 1
 
-        # if column == get_column_letter(col_imports_pe) or column == get_column_letter(col_exported_to_pe):
-        #     adjusted_width = max_length
         if is_vrf_sheet:
-            # if column == get_column_letter(col_export_rt):
-            #     adjusted_width = len(str(ws[get_column_letter(col_export_rt) + '1']).strip())
             if max_length < 3:
                 # for empty columns
                 adjusted_width = 6
@@ -705,7 +692,6 @@ def write_vrf_sheet_row(wbas, hostname, vrf_name, rd, vrf_data_list, start_row):
     if interfaces:
         write_vrf_interfaces(wbas, start_row=start_row, start_column=col_int_interface_name, data_list=interfaces)
     if static_routes_summary:
-        # static_routes_summary.sort(key=lambda item: sort_ip_next_hop_key(item[0]))
         write_extra_columns(wbas, start_row=start_row, start_column=col_route_next_hop, data_list=static_routes_summary)
 
     global banded
@@ -766,15 +752,6 @@ def save_int_to_excel(wb, headers):
 
             auto_column_width_vrf(ws, start_row=1, is_vrf_sheet=False)
 
-"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-                        End of Excel functions
-"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-
-
-"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-                        Start of DB functions
-"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-
 
 def create_db():
     """
@@ -833,15 +810,12 @@ def prepare_string_with_quotes(data_set, quotes=None):
         else:
             if isinstance(entry, int):
                 final_str = final_str + str(entry)
-            # elif isinstance(entry, ipaddress):
-            #     final_str = final_str + entry
             elif not entry:
                 final_str = final_str + "Null"
             elif quotes:
                 final_str = final_str + "'" + entry.replace("'", "''") + "'"
             else:
                 final_str = final_str + entry
-        # print("prepare_string_with_quotes: " + final_str)
     return final_str
 
 
@@ -904,11 +878,6 @@ def insert_list_to_db_tbl(data_list, table_name, table_column, **kwargs):
         insert_to_db(table_name, [table_column] + list(kwargs.keys()), [text] + list(kwargs.values()))
 
 
-"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-                        End of DB functions
-"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-
-
 def get_files_from_path(path, file_extension):
     """
     Get list of files from a path, with specific extention
@@ -950,7 +919,6 @@ def get_import_from_vrfs(vrf_id):
                 mapped.append(imp)
         else:
             mapped.append(('N/A', 'N/A', 'N/A', import_rt[0]))
-    # print('Import_rts: {0}'.format(mapped))
     return mapped
 
 
@@ -1009,10 +977,6 @@ def insert_vrf_to_db(sw_id, vrf_name, rd, imp_exp, description):
             insert_list_to_db_tbl(imp_exp[3], 'import_rt', 'rt_import', vrf_id=vrf_db_id, add_fam_id=2)
 
 
-def get_route_map_lines():
-    pass
-
-
 def parse_vrf(lines, index, vrf_name, vrf_rt_to_name, vrf_def=None):
     rd = ''
     description = ''
@@ -1036,7 +1000,6 @@ def parse_vrf(lines, index, vrf_name, vrf_rt_to_name, vrf_def=None):
                 imports.append(re.match(rgx_imp_rt, lines[index])['rt_import'])
             elif re.match(rgx_exp_rt, lines[index]):
                 export = re.match(rgx_exp_rt, lines[index])['rt_export']
-                # exports.append([export, 'IPv4' if not add_family else add_family])
                 exports.append(export)
                 vrf_rt_to_name[export] = vrf_name
             elif re.match(rgx_rd, lines[index]):
@@ -1049,15 +1012,12 @@ def parse_vrf(lines, index, vrf_name, vrf_rt_to_name, vrf_def=None):
             elif re.match(rgx_export_map, lines[index]):
                 maps['export'] = re.match(rgx_export_map, lines[index])['map']
 
-            # elif re.match('\s*!\s*', lines[index]):
-            #     pass
             elif re.match(r'\s+!\s*', lines[index]) or \
                     re.match(r'\s+\w+', lines[index]):
                 if print_ignore_break:
                     print('Ignore line {0}: {1}'.format(index, lines[index]))
                 pass
             else:
-                # print("Not Matched: ({0}) vrf_name: {1}  ".format(lines[index], vrf_name))
                 if print_ignore_break:
                     print('break line: ' + lines[index])
                 break
@@ -1230,7 +1190,6 @@ def get_vlan_id(vlan, sw_id):
 
 
 def parse_switchport(lines, index, int_type, number, sw_id):
-
     vrf_name = 'Default'
     if len(do_query('select * from vrf where name="{0}" and app_id={1}'.format(vrf_name, sw_id))) == 0:
         insert_to_db('vrf', 'name, app_id', [vrf_name, sw_id])
@@ -1484,8 +1443,6 @@ def find_vrf_interfaces(sw_id, vrf_id, include_default_vrf=False):
                     'where vlan_no = {0} and app_id = {1} and '
                     'exist = 1;'.format(int_list[7], sw_id), True)
 
-                # if qr and qr[0] is None:
-                #     print('here')
                 if qr and qr[0]:
                     int_list[2] = int_list[2] + ' ({0})'.format(qr[0].strip())
             if int_list[9] == 'shutdown':
@@ -1494,7 +1451,6 @@ def find_vrf_interfaces(sw_id, vrf_id, include_default_vrf=False):
             list_interfaces.append(int_list)
 
         list_interfaces.sort(key=lambda item: sort_interface_num_key(item[7]))
-        # interfaces.sort(key=lambda item: sort_ip_next_hop_key(item[3]))
     return list_interfaces
 
 
@@ -1532,9 +1488,7 @@ def parse_interface(sw_id, lines, index):
     vrf_name = 'Default'
     description = ''
     ip_add = []
-    # subnet = None
-    # vip = None
-    # add_type = ''
+
     add_family_id = 1
     status = 'up'
 
@@ -1544,8 +1498,6 @@ def parse_interface(sw_id, lines, index):
 
         index = index + 1
         while lines[index] != '!' and index < len(lines):
-            # if index == 709 and sw_id == 16:
-            #     print('here')
             if re.match(rgx_description, lines[index]):
                 description = re.match(rgx_description, lines[index])['description']
             elif re.match(rgx_vrf_frd, lines[index]):
@@ -1634,11 +1586,6 @@ def parse_interface(sw_id, lines, index):
 
             elif re.match(r'\s*tunnel\s+source\s+(?P<tun_src>\d+\.\d+\.\d+\.\d+)', lines[index]):
                 match = re.match(r'\s*tunnel\s+source\s+(?P<tun_src>\d+\.\d+\.\d+\.\d+)', lines[index])
-                # ip_add = do_query('select int_id from ip_address where address like "{0}$"'.format(match['tun_src']))
-                # if ip_add:
-                #     ip_add_id = ip_add[0]
-                # else:
-                #     subnet_id = get_most_specific_subnet(match['tun_src'], sw_id)
                 tun_source = ('source_ip', match['tun_src'])
 
             elif re.match(r'\s*tunnel\s+source\s+(?P<tun_src>(?P<type>[^0-9]+)(?P<number>.+))', lines[index]):
@@ -1705,21 +1652,6 @@ def parse_vlan(lines, index, sw_id):
     match = re.match(r'\s*vlan\s+(?P<ids>\d+(-\d+)?(,\d+(-\d+)?)*)', lines[index])['ids']
     vlan_ids = get_vlan_numbers(match)
 
-    # if ',' in match:
-    #     vlans = match.split(',')
-    #     for vlan in vlans:
-    #         if '-' in vlan:
-    #             vv = vlan.split('-')
-    #             for i in range(int(vv[0]), int(vv[1]) + 1):
-    #                 vlan_ids.append(i)
-    #         else:
-    #             vlan_ids.append(int(vlan))
-    # elif '-' in match:
-    #     for i in range(int(match[:match.index('-')]), int(match[match.index('-') + 1:]) + 1):
-    #         vlan_ids.append(i)
-    # else:
-    #     vlan_ids.append(int(match))
-
     name = ''
     index = index + 1
     while index < len(lines):
@@ -1745,8 +1677,7 @@ def parse_vlan(lines, index, sw_id):
 
 def parse_static_route(lines, index, sw_id):
     match = re.match(rgx_static_route, lines[index])
-    # if sw_id == 1 and index == 5413:
-    #     print('Index: {0}   line: "{1}"'.format(index, lines[index]))
+
     vrf_name = match['vrf']
     if not vrf_name:
         vrf_name = 'Default'
@@ -1824,8 +1755,6 @@ def parse_cdp_nei(lines, index, sw_id):
                r'(?P<platform>(WS-C.+?)?(CISCO.+?)?(AIR-C.+?)?(IP\s+Phone)?(N\dK-C.+?)?(\d+)?)\s+' \
                r'(?P<remote_int>(?P<type2>[^0-9]+?)\s*(?P<number2>[0-9\\/]+))'
     while True:
-        # line1 = lines[index]
-        # lines2 = lines[index + 1]
         if re.match(rgx_neig, lines[index]):
             match = re.match(rgx_neig, lines[index])
             neigh = match['neighbor']
@@ -1833,9 +1762,6 @@ def parse_cdp_nei(lines, index, sw_id):
             remote_int = match['remote_int']
             capabilities = match['capab']
             platform = match['platform']
-
-            # print('Neighbor: {0}  Local_int: {1}  Remote_int: {2}  Capabilities: {3}  '
-            #       'Platform: {4}'.format(neigh, local_int, remote_int, capabilities, platform))
 
         elif re.match(rgx_neig, lines[index] + lines[index + 1]):
             match = re.match(rgx_neig, lines[index] + lines[index + 1])
@@ -1845,8 +1771,6 @@ def parse_cdp_nei(lines, index, sw_id):
             capabilities = match['capab']
             platform = match['platform']
 
-            # print('Neighbor: {0}  Local_int: {1}  Remote_int: {2}  Capabilities: {3}  '
-            #       'Platform: {4}'.format(neigh, local_int, remote_int, capabilities, platform))
             index = index + 2
             continue
 
@@ -1878,7 +1802,7 @@ def parse_log_file(log_file, site_id):
                 hostname = re.match(rgx_host, lines[i])['hostname']
                 if not hostname:
                     hostname = re.match(r'\s*hostname\s*(?P<hostname>.+)', lines[i])
-                # i = i + 1
+
                 sw_id = insert_to_db('appliance', 'hostname, site_id', [hostname, site_id])
                 match = re.match(r'\s*((\w:)?(.+?[\\/]{1,2})*)(?P<name>(?P<num>\d*)\s*(.+?)(\.\w+))', log_file)
 
