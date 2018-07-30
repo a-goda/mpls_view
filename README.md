@@ -3,20 +3,20 @@ A script which outputs an overview of a Cisco MPLS environment by showing VRF re
 The output is an Excel workbook, each workbook sheet contains a specific PE related information - by default, but could aggregate multiple PE in one sheet
 
 The analysis is done on log files of the commands output "show run" and "sh vlan" for each PE. Each PE on a separate log file.
-### Prerequisites:
+## Prerequisites:
     1. install openpyxl package
         $pip install openpyxl
         
-### Inputs: 
+## Inputs: 
 	1. A directory that contains PEs' log file
 	2. Extension to filter files based on
 	
-### Outputs - on the same directory of log files: 
+## Outputs - on the same directory of log files: 
 	1. MPLS overview Excel file
 	2. L3 interfaces Excel file
 
 
-## Log files
+## Log files:
     1. Save each PE log file by the extention .log
         Path and the expected extention could be changed at the beginning of the main function
     2. PE log file name options
