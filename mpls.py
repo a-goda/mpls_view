@@ -783,7 +783,7 @@ def create_db():
     """
     con = sqlite3.connect(':memory:')
     cursor = con.cursor()
-    with open('vrf rt leaking db schema.sql', "r") as sf:
+    with open('db schema.sql', "r") as sf:
         cursor.executescript(sf.read())
         con.commit()
 
@@ -1232,6 +1232,9 @@ def get_vlan_id(vlan, sw_id):
 def parse_switchport(lines, index, int_type, number, sw_id):
 
     vrf_name = 'Default'
+    if len(do_query('select * from vrf where name="{0}" and app_id={1}'.format(vrf_name, sw_id))) == 0:
+        insert_to_db('vrf', 'name, app_id', [vrf_name, sw_id])
+
     status = 'up'
 
     description = ''
@@ -1381,47 +1384,42 @@ def parse_switchport(lines, index, int_type, number, sw_id):
 
     else:
         # for L3 interfaces
-        if vrf_name == 'Default' \
-                and len(do_query('select * from vrf where name="{0}" and app_id={1}'.format(vrf_name, sw_id))) == 0:
-            insert_to_db('vrf', 'name, app_id', [vrf_name, sw_id])
+        qr = do_query('select vrf_id from vrf where name="{0}" and app_id={1}'.format(vrf_name, sw_id), True)
+        if qr:
+            if pending:
+                pending_reason = pending_reason + ',vrf_id'
+                do_query(
+                    'update {0} set vrf_name={1}, pend_reason={2} where int_id={3}'.format(
+                        interface_table, vrf_name, pending_reason, int_id))
 
-        else:
-            qr = do_query('select vrf_id from vrf where name="{0}" and app_id={1}'.format(vrf_name, sw_id), True)
-            if qr:
-                if pending:
-                    pending_reason = pending_reason + ',vrf_id'
-                    do_query(
-                        'update {0} set vrf_name={1}, pend_reason={2} where int_id={3}'.format(
-                            interface_table, vrf_name, pending_reason, int_id))
-
-                else:
-                    vrf_id = qr[0]
-                    # update the interface record wih vrf_id
-                    do_query('update {0} set vrf_id={1} where int_id={2}'.format(interface_table, vrf_id, int_id))
             else:
-                # update pending reason with vrf_id is unknown
-                if pending:
-                    pending_reason = pending_reason + ',vrf_id'
-                    do_query(
-                        'update {0} set vrf_name={1}, pend_reason={2} where int_id={3}'.format(
-                            interface_table, vrf_name, pending_reason, int_id))
+                vrf_id = qr[0]
+                # update the interface record wih vrf_id
+                do_query('update {0} set vrf_id={1} where int_id={2}'.format(interface_table, vrf_id, int_id))
+        else:
+            # update pending reason with vrf_id is unknown
+            if pending:
+                pending_reason = pending_reason + ',vrf_id'
+                do_query(
+                    'update {0} set vrf_name={1}, pend_reason={2} where int_id={3}'.format(
+                        interface_table, vrf_name, pending_reason, int_id))
 
-                else:
-                    """
-                    1) read the record, update it with pending reason and save to pend_interface table
-                    2) delete int_id record in normal interface table                    
-                    """
-                    pending = True
-                    pending_reason = 'vrf_id'
-                    do_query(
-                        'insert into pending_interface '
-                        '(type, number, description, mode, member_of, app_id, vrf_name, pend_reason, status) '
-                        'select '
-                        'type, number, description, mode, member_of, app_id, '
-                        '"{0}" as vrf_name, "{1}" as pend_reason, status '
-                        'from interface where int_id={2}'.format(vrf_name, pending_reason, int_id), insert=True)
+            else:
+                """
+                1) read the record, update it with pending reason and save to pend_interface table
+                2) delete int_id record in normal interface table                    
+                """
+                pending = True
+                pending_reason = 'vrf_id'
+                do_query(
+                    'insert into pending_interface '
+                    '(type, number, description, mode, member_of, app_id, vrf_name, pend_reason, status) '
+                    'select '
+                    'type, number, description, mode, member_of, app_id, '
+                    '"{0}" as vrf_name, "{1}" as pend_reason, status '
+                    'from interface where int_id={2}'.format(vrf_name, pending_reason, int_id), insert=True)
 
-                    do_query('delete from interface where int_id={0}'.format(int_id))
+                do_query('delete from interface where int_id={0}'.format(int_id))
 
         if not pending:
             for ip_entry in ip_add:
@@ -2118,8 +2116,7 @@ def process_pending_tables():
 
 # @profile
 def main():
-    root = 'D:\\Zoro\\Dropbox\\Learning\\Programming\\Python\\Projects\\Separated Scripts\\'
-    path = root + 'Routers\\VRFs\\3Jul2018\\'
+    path = 'configs\\'
     file_extension = '.log'
     db_dump_file = 'db_dump.sql'
 
@@ -2142,7 +2139,7 @@ def main():
 
         process_pending_tables()
 
-        out_file_name = 'VRFs_11.xlsx'
+        out_file_name = 'mpls_view.xlsx'
         save_vrfs_to_excel(vrf_wb)
 
         headers = ['VRF Name', 'Export RT', 'Interface', 'IP Address (Primary/VIP)', 'Interface Description']
