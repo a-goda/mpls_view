@@ -14,7 +14,7 @@ The analysis is done on log files of the commands output "show run" and "sh vlan
 ## Outputs - on the same directory of log files: 
 	1. MPLS overview Excel file
 	2. L3 interfaces Excel file
-
+	3. Database SQL dump file
 
 ## Log files:
     1. Save each PE log file by the extention .log
@@ -26,6 +26,3 @@ The analysis is done on log files of the commands output "show run" and "sh vlan
         Option 2: Log file name without preceding number (ex. "PE2.log") 
             Log file information would be collected with other PEs - without precedding number - log files 
             on a workbook sheet called Branches
-
-        
-          
