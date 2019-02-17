@@ -19,29 +19,56 @@ import socket
 rgx_host = r'(?P<hostname>[^\s]+)#\s*(sh[ow]{0,2}\s*run.*?)?' \
            r'(sh[ow]{0,2}\s*cdp\s*ne[ighbors]{0,7}\s*(d[etails]{0,6})?)?' \
            r'(sh[ow]{0,2}\s*vlan)?'
-rgx_show_run_sec = r'(?P<hostname>.+?)#\s*sh[ow]{0,2}\s+run.*'
+rgx_show_run_sec = r'(?P<hostname>.+?)#\s*sh[ow]{0,2}\s+run[nig]{0,4}.*'
 rgx_cdp_nei_sec = r'(?P<hostname>.+?)#\s*sh[ow]{0,2}\s*cdp\s*ne[ighbors]{0,7}\s*(d[etails]{0,6})?'
-rgx_vlan_sec = r'(?P<hostname>.+?)#\s*sh[ow]{0,2}\s*vlan'
-rgx_vrf_frd = r'\s*ip\s*vrf\s*forwarding\s*(?P<vrf_name>.+)'
-rgx_ip_vrf = r'\s*ip\s*vrf\s*(?P<vrf_name>.+)'
-rgx_vrf_def = r'\s*vrf\s*definition\s*(?P<vrf_name>.+)'
+rgx_show_vlan_sec = r'(?P<hostname>.+?)#\s*sh[ow]{0,2}\s*vlan'
+rgx_show_inventory = r'(?P<hostname>.+?)#\s*sh[ow]{0,2}\s*in[vtory]{0,5}'
+
+rgx_ios_ip_vrf = r'\s*ip\s*vrf\s*(?P<vrf_name>.+)'
+rgx_ios_vrf_def = r'\s*vrf\s*definition\s*(?P<vrf_name>.+)'
+
+rgx_xr_vrf = r'\s*vrf\s+(?P<vrf_name>.+)\s*'
+rgx_interface_vrf_fwd = r'\s*(ip\s+)?vrf\s+(forwarding\s+)?(?P<vrf_name>.+)'
+rgx_vrf_fwd = r'\s*ip\s*vrf\s*forwarding\s*(?P<vrf_name>.+)'
+rgx_nx_vrf_fwd = r'\s+vrf\s+member\s+(?P<vrf_name>\S+)'
+
 rgx_rd = r'\s*rd\s*(?P<rd>.+)'
-rgx_add_family = r'\s*address.family\s*ip(?P<add_family>v[64])'
-rgx_exp_rt = r'\s*route-target\s*export\s*(?P<rt_export>.+)'
-rgx_imp_rt = r'\s*route-target\s*import\s*(?P<rt_import>.+)'
+rgx_add_family = r'\s*address.family\s*ip(?P<add_family>v[64])\s*(?P<transport_type>.*)'
+rgx_ios_exp_rt = r'\s*route-target\s*export\s*(?P<rt_export>.+)'
+rgx_ios_imp_rt = r'\s*route-target\s*import\s*(?P<rt_import>.+)'
+
+rgx_xr_exp_rt = r'\s*export\s*route-target\s*$'
+rgx_xr_imp_rt = r'\s*import\s*route-target\s*$'
+rgx_xr_rt = r'[0-9:]+$'
+
 rgx_description = r'\s*description\s*(?P<description>.+)'
 rgx_import_map = r'\s*import\s+map\s+(?P<map>.+)'
 rgx_export_map = r'\s*export\s+map\s+(?P<map>.+)'
-rgx_interface = r'\s*[iI]nterface\s+(?P<type>[^0-9]+)(?P<number>[0-9\\/]+(\.\d+)?)'
-rgx_inter_type_num = r'(?P<type>[^0-9]+)(?P<number>[0-9\\/]+)'
-rgx_ip_add = r'\s*ip\s*address\s*(?P<ip_add>(?P<ip>\d+\.\d+\.\d+\.\d+)' \
-             r'\s*(?P<subnet>\d+\.\d+\.\d+\.\d+))\s*(?P<sec>[sS]econdary)?'
+
+rgx_interface = r'\s*[iI]nterface\s+(?P<type>[^0-9]+)(?P<number>[0-9a-zA-Z\\/]+(\.(?P<sub>\d+))?)'
+# rgx_inter_type_num = r'(?P<type>[^0-9]+)(?P<number>[0-9\\/]+)'
 rgx_tunnel_interface = r'\s*[iI]nterface\s+[tT]unnel(?P<number>.+)'
-rgx_static_route = r'\s*ip(?P<add_fam>v6)?\s+route\s+(vrf\s+(?P<vrf>.+?)\s+)?' \
+
+rgx_ip_add = r'\s*ip(?P<ver>v\d)?(\s+address)?\s+(?P<ip_add>(?P<ip>\d+\.\d+\.\d+\.\d+)' \
+             r'(\s*(?P<subnet>\d+\.\d+\.\d+\.\d+))?)(\s*(?P<sec>[sS]econdary))?'
+
+rgx_nx_ip_add = r'\s+ip\s+address\s+(?P<ip_add>(?P<ip>\d+\.\d+\.\d+\.\d+))' \
+                r'/(?P<subnet>\d+)?(\s*(?P<sec>[sS]econdary))?'
+
+rgx_ipv6_add = r'\s*ipv6\s+address\s+(?P<ip_add>[0-9:]+(/(?P<subnet>\d+))?)\s*(?P<type>\S+)?'
+
+rgx_ios_static_route = r'\s*ip(?P<add_fam>v6)?\s+route\s+(vrf\s+(?P<vrf>.+?)\s.+)?' \
                    r'(?P<sub>(?P<net>\d+\.\d+\.\d+\.\d+)\s+(?P<mask>\d+\.\d+\.\d+\.\d+))\s+' \
                    r'(?P<next_hop>((?P<ip_next_hop>\d+\.\d+\.\d+\.\d+)\s*)?' \
-                   r'((?P<int_next_hop>(?P<type>[^0-9]+)(?P<number>[0-9\\/]+))\s*)?)' \
+                   r'((?P<int_next_hop>(?P<type>[^0-9]+)(?P<number>[0-9\\/]+)(?P<sub_int>\.\d+)?)\s*)?)' \
                    r'((?P<ad>\d+\s*))?(name\s+(?P<name>.+))?'
+
+rgx_xr_router_static = r'router\s*static\s*$'
+
+rgx_xr_static_route_entry = r'\s*(?P<sub>(?P<net>\d+\.\d+\.\d+\.\d+)/(?P<mask>\d{1,2}))\s+(vrf\s+(?P<vrf>.+?)\s+)?' \
+                            r'((?P<int_next_hop>(?P<type>[^0-9]+)(?P<number>[0-9\\/]+)(?P<sub_int>\.\d+)?)\s*)?' \
+                            r'((?P<ip_next_hop>\d+\.\d+\.\d+\.\d+)\s*)?((?P<ad>\d+\s*))?' \
+                            r'(description\s+(?P<description>.+))?'
 
 dark_blue = '0000b3'
 blue_white = 'e6e6e6'
@@ -73,6 +100,9 @@ col_int_addr = ''
 
 col_route_next_hop = ''
 col_route_count = ''
+
+add_family_v4_id = 1
+add_family_v6_id = 2
 
 
 def profile(fnc):
@@ -257,7 +287,7 @@ def str_to_int(text):
 
 
 def natural_sort(text):
-    return [str_to_int(c) for c in re.split('(\d+)', text)]
+    return [str_to_int(c) for c in re.split(r'(\d+)', text)]
 
 
 def prepare_vrf_sheet_header(wbas, start_row=1, freeze=True):
@@ -306,12 +336,12 @@ def prepare_vrf_sheet_header(wbas, start_row=1, freeze=True):
     wbas[col_coord_exported_to_pe] = 'PE (Alias)'
     wbas[col_coord_exported_to_rts] = 'VRF Name(RT)'
 
-    wbas[col_coord_int_name] = 'Int. Name [VLAN name][Status]'
+    wbas[col_coord_int_name] = 'Int. Name [VLAN name](Status)(VLAN_ID)'
     wbas[col_coord_int_ips] = 'IP Addresses (Primary/VIP)'
     wbas[col_coord_int_desc] = 'Int. Description'
     wbas[col_coord_int_note] = 'Notes'
 
-    wbas[col_coord_route_next_hop] = 'Next Hop (IP/Int)'
+    wbas[col_coord_route_next_hop] = 'Next Hop (IP/Int) ->(To_VRF)'
     wbas[col_coord_route_count] = 'Count'
 
     """
@@ -323,20 +353,20 @@ def prepare_vrf_sheet_header(wbas, start_row=1, freeze=True):
     global col_hostname, col_vrf, col_rd, col_export_rt, col_imports_pe, col_imports_rts, col_exported_to_pe, \
         col_exported_to_rts, col_int_interface_name, col_int_addr, col_int_desc, col_route_next_hop, col_route_count
 
-    col_hostname = column_index_from_string(re.search('(\D+)', col_coord_hostname)[0])
-    col_vrf = column_index_from_string(re.search('(\D+)', col_coord_vrf)[0])
-    col_rd = column_index_from_string(re.search('(\D+)', col_coord_rd)[0])
-    col_export_rt = column_index_from_string(re.search('(\D+)', col_coord_export_rt)[0])
-    col_imports_pe = column_index_from_string(re.search('(\D+)', col_coord_imports_pe)[0])
-    col_imports_rts = column_index_from_string(re.search('(\D+)', col_coord_imports_rts)[0])
-    col_exported_to_pe = column_index_from_string(re.search('(\D+)', col_coord_exported_to_pe)[0])
-    col_exported_to_rts = column_index_from_string(re.search('(\D+)', col_coord_exported_to_rts)[0])
+    col_hostname = column_index_from_string(re.search(r'(\D+)', col_coord_hostname)[0])
+    col_vrf = column_index_from_string(re.search(r'(\D+)', col_coord_vrf)[0])
+    col_rd = column_index_from_string(re.search(r'(\D+)', col_coord_rd)[0])
+    col_export_rt = column_index_from_string(re.search(r'(\D+)', col_coord_export_rt)[0])
+    col_imports_pe = column_index_from_string(re.search(r'(\D+)', col_coord_imports_pe)[0])
+    col_imports_rts = column_index_from_string(re.search(r'(\D+)', col_coord_imports_rts)[0])
+    col_exported_to_pe = column_index_from_string(re.search(r'(\D+)', col_coord_exported_to_pe)[0])
+    col_exported_to_rts = column_index_from_string(re.search(r'(\D+)', col_coord_exported_to_rts)[0])
 
-    col_int_interface_name = column_index_from_string(re.search('(\D+)', col_coord_int_name)[0])
-    col_int_addr = column_index_from_string(re.search('(\D+)', col_coord_int_ips)[0])
-    col_int_desc = column_index_from_string(re.search('(\D+)', col_coord_int_desc)[0])
-    col_route_next_hop = column_index_from_string(re.search('(\D+)', col_coord_route_next_hop)[0])
-    col_route_count = column_index_from_string(re.search('(\D+)', col_coord_route_count)[0])
+    col_int_interface_name = column_index_from_string(re.search(r'(\D+)', col_coord_int_name)[0])
+    col_int_addr = column_index_from_string(re.search(r'(\D+)', col_coord_int_ips)[0])
+    col_int_desc = column_index_from_string(re.search(r'(\D+)', col_coord_int_desc)[0])
+    col_route_next_hop = column_index_from_string(re.search(r'(\D+)', col_coord_route_next_hop)[0])
+    col_route_count = column_index_from_string(re.search(r'(\D+)', col_coord_route_count)[0])
 
     for cells in wbas['A{1}:{0}{1}'.format(get_column_letter(wbas.max_column), start_row)]:
         for cell in cells:
@@ -539,6 +569,7 @@ def write_vrf_interfaces(wbas, start_row, start_column, data_list):
     col_num = start_column
 
     for d in data_list:
+
         wbas.cell(row=row_num, column=col_num).value = d[2]
         wbas.cell(row=row_num, column=col_num + 1).value = d[3]
         wbas.cell(row=row_num, column=col_num + 2).value = d[4]
@@ -618,6 +649,8 @@ def write_vrf_interfaces(wbas, start_row, start_column, data_list):
                 if qr:
                     wbas.cell(row=row_num, column=col_num + 3).value = 'Src: {0}, Dest: {1} ({2}, {3})'.format(
                         src[0], dst_ip, qr[0], qr[1])
+
+
         row_num = row_num + 1
 
 
@@ -977,13 +1010,17 @@ def insert_vrf_to_db(sw_id, vrf_name, rd, imp_exp, description):
             insert_list_to_db_tbl(imp_exp[3], 'import_rt', 'rt_import', vrf_id=vrf_db_id, add_fam_id=2)
 
 
-def parse_vrf(lines, index, vrf_name, vrf_rt_to_name, vrf_def=None):
+def parse_vrf(lines, index, vrf_name, vrf_rt_to_name, vrf_def=None, crs_asr=None):
     rd = ''
     description = ''
     index = index + 1
     maps = {}
-    if not vrf_def:
-        # only for IPv4
+    loop_break = False
+
+    if not vrf_def and not crs_asr:
+        # For IOS, old VRF configuration syntax.
+        # Only for IPv4
+
         imports = []
         exports = []
         while index < len(lines):
@@ -991,21 +1028,25 @@ def parse_vrf(lines, index, vrf_name, vrf_rt_to_name, vrf_def=None):
                 index = index + 1
                 continue
 
-            if re.match(rgx_vrf_frd, lines[index]) or \
-                    re.match(rgx_ip_vrf, lines[index]) or \
-                    re.match(rgx_vrf_def, lines[index]):
+            if re.match(rgx_vrf_fwd, lines[index]) or \
+                    re.match(rgx_ios_ip_vrf, lines[index]) or \
+                    re.match(rgx_ios_vrf_def, lines[index]):
                 break
 
-            if re.match(rgx_imp_rt, lines[index]):
-                imports.append(re.match(rgx_imp_rt, lines[index])['rt_import'])
-            elif re.match(rgx_exp_rt, lines[index]):
-                export = re.match(rgx_exp_rt, lines[index])['rt_export']
+            if re.match(rgx_ios_imp_rt, lines[index]):
+                imports.append(re.match(rgx_ios_imp_rt, lines[index])['rt_import'])
+
+            elif re.match(rgx_ios_exp_rt, lines[index]):
+                export = re.match(rgx_ios_exp_rt, lines[index])['rt_export']
                 exports.append(export)
                 vrf_rt_to_name[export] = vrf_name
+
             elif re.match(rgx_rd, lines[index]):
                 rd = re.match(rgx_rd, lines[index])['rd']
+
             elif re.match(rgx_description, lines[index]):
                 description = re.match(rgx_description, lines[index])['description']
+
             elif re.match(rgx_import_map, lines[index]):
                 maps['import'] = re.match(rgx_import_map, lines[index])['map']
 
@@ -1024,43 +1065,50 @@ def parse_vrf(lines, index, vrf_name, vrf_rt_to_name, vrf_def=None):
             index = index + 1
         return rd, [exports, imports], description, index
 
-    else:
+    elif vrf_def:
+        # For IOS, new VRF configuration syntax
         # for both IPv4 and IPv6
         add_family = ''
         imports = []
         exports = []
-        importsv6 = []
-        exportsv6 = []
+        imports_v6 = []
+        exports_v6 = []
         while index < len(lines):
             if not lines[index] and index + 1 > len(lines) and lines[index + 1]:
                 index = index + 1
                 continue
-            if re.match(rgx_vrf_frd, lines[index]) or \
-                    re.match(rgx_ip_vrf, lines[index]) or \
-                    re.match(rgx_vrf_def, lines[index]):
+            if re.match(rgx_vrf_fwd, lines[index]) or \
+                    re.match(rgx_ios_ip_vrf, lines[index]) or \
+                    re.match(rgx_ios_vrf_def, lines[index]):
                 break
-            if re.match(rgx_imp_rt, lines[index]):
+
+            if re.match(rgx_ios_imp_rt, lines[index]):
                 if add_family == 'IPv4':
-                    imports.append(re.match(rgx_imp_rt, lines[index])['rt_import'])
+                    imports.append(re.match(rgx_ios_imp_rt, lines[index])['rt_import'])
                 elif add_family == 'IPv6':
-                    importsv6.append(re.match(rgx_imp_rt, lines[index])['rt_import'])
-            elif re.match(rgx_exp_rt, lines[index]):
+                    imports_v6.append(re.match(rgx_ios_imp_rt, lines[index])['rt_import'])
+
+            elif re.match(rgx_ios_exp_rt, lines[index]):
                 if add_family == 'IPv4':
-                    export = re.match(rgx_exp_rt, lines[index])['rt_export']
+                    export = re.match(rgx_ios_exp_rt, lines[index])['rt_export']
                     exports.append(export)
                     vrf_rt_to_name[export] = vrf_name
                 elif add_family == 'IPv6':
-                    export = re.match(rgx_exp_rt, lines[index])['rt_export']
-                    exportsv6.append(export)
+                    export = re.match(rgx_ios_exp_rt, lines[index])['rt_export']
+                    exports_v6.append(export)
                     vrf_rt_to_name[export] = vrf_name
                 else:
                     print('Something wrong in vrf definition in line number {0}'.format(index))
+
             elif re.match(rgx_rd, lines[index]):
                 rd = re.match(rgx_rd, lines[index])['rd']
+
             elif re.match(rgx_add_family, lines[index]):
                 add_family = 'IP' + re.match(rgx_add_family, lines[index])['add_family']
+
             elif re.match(rgx_description, lines[index]):
                 description = re.match(rgx_description, lines[index])['description']
+
             elif re.match(rgx_import_map, lines[index]):
                 if add_family == 'IPv4':
                     maps['importv4'] = re.match(rgx_import_map, lines[index])['map']
@@ -1078,14 +1126,84 @@ def parse_vrf(lines, index, vrf_name, vrf_rt_to_name, vrf_def=None):
                     re.match(r'\s+\w+', lines[index]):
                 if print_ignore_break:
                     print('Ignore line {0}: {1}'.format(index, lines[index]))
-                pass
+
             else:
                 if print_ignore_break:
                     print('break line: ' + lines[index], vrf_name)
                 break
             index = index + 1
 
-        return rd, [exports, imports, exportsv6, importsv6], description, index
+        return rd, [exports, imports, exports_v6, imports_v6], description, index
+
+    else:
+        # For IOS XR
+        add_family = ''
+        imports = []
+        exports = []
+        imports_v6 = []
+        exports_v6 = []
+        while index < len(lines):
+            if not lines[index] and not index + 1 > len(lines):
+                index = index + 1
+                continue
+            elif re.match(rgx_xr_vrf, lines[index]) or re.match(r'\S+', lines[index]):
+                break
+
+            elif re.match(rgx_add_family, lines[index]):
+                add_family = 'IP' + re.match(rgx_add_family, lines[index])['add_family']
+                index = index + 1
+                while index < len(lines):
+                    if re.match(rgx_xr_imp_rt, lines[index]):
+                        while index + 1 < len(lines):
+                            index = index + 1
+                            rt = re.match(r'\s*(?P<rt>[0-9:]+)$', lines[index])
+                            if rt:
+                                if add_family == 'IPv4':
+                                    imports.append(rt['rt'])
+                                else:
+                                    imports_v6.append(rt['rt'])
+                            else:
+                                loop_break = True
+                                break
+
+                    elif re.match(rgx_xr_exp_rt, lines[index]):
+
+                        while index + 1 < len(lines):
+                            index = index + 1
+                            rt = re.match(r'\s*(?P<rt>[0-9:]+)$', lines[index])
+                            if rt:
+                                if add_family == 'IPv4':
+                                    exports.append(rt['rt'])
+                                else:
+                                    exports_v6.append(rt['rt'])
+                            else:
+                                loop_break = True
+                                break
+
+                    elif re.match(r'\S+', lines[index]):
+                        break
+
+                    if not loop_break:
+                        index = index + 1
+                    else:
+                        loop_break = False
+
+            elif re.match(rgx_description, lines[index]):
+                description = re.match(rgx_description, lines[index])['description']
+
+            elif re.match(r'\s+!\s*', lines[index]) or \
+                    re.match(r'\s+\w+', lines[index]):
+                if print_ignore_break:
+                    print('Ignore line {0}: {1}'.format(index, lines[index]))
+                pass
+
+            else:
+                if print_ignore_break:
+                    print('break line: ' + lines[index], vrf_name)
+                break
+            index = index + 1
+
+        return [exports, imports, exports_v6, imports_v6], description, index
 
 
 def get_subnet_id(ip_add):
@@ -1189,207 +1307,6 @@ def get_vlan_id(vlan, sw_id):
         return vlan, None
 
 
-def parse_switchport(lines, index, int_type, number, sw_id):
-    vrf_name = 'Default'
-    if len(do_query('select * from vrf where name="{0}" and app_id={1}'.format(vrf_name, sw_id))) == 0:
-        insert_to_db('vrf', 'name, app_id', [vrf_name, sw_id])
-
-    status = 'up'
-
-    description = ''
-    ip_add = []
-    add_family_id = 1
-    mode = 'trunk'
-    allowed_vlans = []
-    native_vlan = ''
-
-    access_vlans = []
-
-    group_id = 0
-    group_mode = ''
-
-    while lines[index] != '!' and index < len(lines):
-        if re.match(rgx_description, lines[index]):
-            description = re.match(rgx_description, lines[index])['description']
-
-        elif re.match(rgx_vrf_frd, lines[index]):
-            vrf_name = re.match(rgx_vrf_frd, lines[index])['vrf_name']
-        elif re.match(r'\s*vrf\s+forwarding\s+(?P<vrf_name>.+)', lines[index]):
-            vrf_name = re.match(r'\s*vrf\s+forwarding\s+(?P<vrf_name>.+)', lines[index])['vrf_name']
-        elif re.match(rgx_ip_add, lines[index]):
-            # IPv4 address
-            match = re.match(rgx_ip_add, lines[index])
-            ip = match['ip']
-            subnet = match['subnet']
-            mode = 'l3'
-            if match.group('sec'):
-                ip_add.append([ipaddress.ip_interface(ip + '/' + subnet), 'secondary'])
-            else:
-                ip_add.append([ipaddress.ip_interface(ip + '/' + subnet), 'primary'])
-
-        elif re.match(r'\s*switchport\s*mode\s*(?P<mode>.+?)', lines[index]):
-            mode = re.match(r'\s*switchport\s*mode\s*(?P<mode>.+)', lines[index])['mode'].strip()
-
-        elif re.match(r'\s*switchport\s+access\s+vlan\s+(?P<access>.+)', lines[index]):
-            access_vlan = get_vlan_id(
-                re.match(r'\s*switchport\s+access\s+vlan\s+(?P<access>.+)', lines[index])['access'].strip(), sw_id)
-            access_vlans.append([access_vlan, 'untagged-access'])
-
-        elif re.match(r'\s*switchport\s+voice\s+vlan\s+(?P<voice>.+)', lines[index]):
-            voice_vlan = get_vlan_id(
-                re.match(r'\s*switchport\s+voice\s+vlan\s+(?P<voice>.+)', lines[index])['voice'].strip(), sw_id)
-            access_vlans.append([voice_vlan, 'untagged-voice'])
-
-        elif re.match(r'\s*switchport\s+trunk\s+allowed\s+vlan\s+(?P<ids>\d+(-\d+)?(,\d+(-\d+)?)*)', lines[index]):
-            match = re.match(
-                r'\s*switchport\s+trunk\s+allowed\s+vlan\s+(?P<ids>\d+(-\d+)?(,\d+(-\d+)?)*)', lines[index])
-            allowed_vlans.extend(get_vlan_id(int(vlan), sw_id) for vlan in get_vlan_numbers(match['ids']))
-
-        elif re.match(r'\s*switchport\s+trunk\s+allowed\s+vlan\s+add\s+(?P<ids>\d+(-\d+)?(,\d+(-\d+)?)*)', lines[index]):
-            match = re.match(
-                r'\s*switchport\s+trunk\s+allowed\s+vlan\s+add\s+(?P<ids>\d+(-\d+)?(,\d+(-\d+)?)*)', lines[index])
-            allowed_vlans.extend(get_vlan_id(int(vlan), sw_id) for vlan in get_vlan_numbers(match['ids']))
-
-        elif re.match(r'\s*switchport\s+trunk\s+native\s+vlan\s+(?P<native>\d+)', lines[index]):
-            match = re.match(r'\s*switchport\s+trunk\s+native\s+vlan\s+(?P<native>\d+)', lines[index])
-            native_vlan = get_vlan_id(match['native'], sw_id)
-
-        elif re.match(r'\s*channel-group\s*(?P<group_id>\d+)\s*mode\s*(?P<mode>.+?)\s*', lines[index]):
-            match = re.match(r'\s*channel-group\s*(?P<group_id>\d+)\s*mode\s*(?P<mode>.+?)\s*', lines[index])
-            group_id = match['group_id']
-            group_mode = match['mode']
-
-        elif re.match(r'\s*shutdown\s*$', lines[index]):
-            status = 'shutdown'
-
-        elif re.match(r'\s+\w+', lines[index]):
-            # ignore unneeded lines under interface
-            if print_ignore_break:
-                print('Ignore line {0}: {1}'.format(index, lines[index]))
-            pass
-
-        elif re.match(r'\s*!', lines[index]):
-            if print_ignore_break:
-                print('Break line: ' + lines[index])
-            break
-        index = index + 1
-
-    vlan_table = 'int_vlan'
-    interface_table = 'interface'
-    pending = False
-    pending_reason = 'channel-group'
-
-    if int_type == 'channel-group':
-        int_id = insert_to_db('interface',
-                              'type, number, description, mode, app_id, status',
-                              [int_type, number, description, mode, sw_id, status])
-    else:
-        if group_id and group_mode:
-            # if member of channel-group
-            group_int_id = do_query(
-                'select int_id from interface where type="channel-group" and number={0}'.format(group_id), True)
-            if group_int_id:
-                int_id = insert_to_db(interface_table,
-                                      'type, number, description, mode, member_of, app_id, status',
-                                      [int_type, number, description, mode, group_int_id[0], sw_id, status])
-            else:
-                pending = True
-                vlan_table = 'pending_int_vlan'
-                interface_table = 'pending_interface'
-                int_id = insert_to_db(interface_table,
-                                      'type, number, description, mode, group_id, app_id, pend_reason, status',
-                                      [int_type, number, description, mode, group_id, sw_id, pending_reason, status])
-        else:
-            # is not a member of any channel-group
-            int_id = insert_to_db(interface_table,
-                                  'type, number, description, mode, app_id, status',
-                                  [int_type, number, description, mode, sw_id, status])
-
-    if mode == 'trunk':
-        if not native_vlan:
-            native_vlan = get_vlan_id('1', sw_id)
-
-        for vlan in allowed_vlans:
-            if not vlan[1]:
-                # configured with allowed vlan but the vlan id doesn't exist
-                vlan_id = insert_to_db('vlan', 'vlan_no, app_id, exist',
-                                       [int(vlan[0]) if isinstance(vlan[0], str) else vlan[0], sw_id, 0])
-
-                insert_to_db(vlan_table, 'int_id, vlan_id, vlan_mode', [int_id, vlan_id, 'tagged'])
-            else:
-                insert_to_db(vlan_table, 'int_id, vlan_id, vlan_mode', [int_id, vlan[1], 'tagged'])
-
-        if not native_vlan[1]:
-            # configured with native vlan but the vlan id doesn't exist
-            vlan_id = insert_to_db('vlan', 'vlan_no, app_id, exist',
-                                   [int(native_vlan[0]) if isinstance(native_vlan[0], str) else native_vlan[0],
-                                    sw_id, 0])
-
-            insert_to_db(vlan_table, 'int_id, vlan_id, vlan_mode', [int_id, vlan_id, 'untagged'])
-        else:
-            insert_to_db(vlan_table, 'int_id, vlan_id, vlan_mode', [int_id, native_vlan[1], 'untagged'])
-
-    elif mode == 'access':
-        # mode access
-        for vlan in access_vlans:
-            if vlan[1] or vlan_table == 'pending_int_vlan':
-                insert_to_db(vlan_table, 'int_id, vlan_id, vlan_mode', [int_id, vlan[0][1], vlan[1]])
-            else:
-                # vlan id is not available in DB
-                vlan_id = insert_to_db('vlan', 'vlan_no, app_id, exist',
-                                       [int(vlan[0]) if isinstance(vlan[0], str) else vlan[0], sw_id, 0])
-
-                insert_to_db(vlan_table, 'int_id, vlan_id, vlan_mode', [int_id, vlan_id, vlan[1]])
-
-    else:
-        # for L3 interfaces
-        qr = do_query('select vrf_id from vrf where name="{0}" and app_id={1}'.format(vrf_name, sw_id), True)
-        if qr:
-            if pending:
-                pending_reason = pending_reason + ',vrf_id'
-                do_query(
-                    'update {0} set vrf_name={1}, pend_reason={2} where int_id={3}'.format(
-                        interface_table, vrf_name, pending_reason, int_id))
-
-            else:
-                vrf_id = qr[0]
-                # update the interface record wih vrf_id
-                do_query('update {0} set vrf_id={1} where int_id={2}'.format(interface_table, vrf_id, int_id))
-        else:
-            # update pending reason with vrf_id is unknown
-            if pending:
-                pending_reason = pending_reason + ',vrf_id'
-                do_query(
-                    'update {0} set vrf_name={1}, pend_reason={2} where int_id={3}'.format(
-                        interface_table, vrf_name, pending_reason, int_id))
-
-            else:
-                """
-                1) read the record, update it with pending reason and save to pend_interface table
-                2) delete int_id record in normal interface table                    
-                """
-                pending = True
-                pending_reason = 'vrf_id'
-                do_query(
-                    'insert into pending_interface '
-                    '(type, number, description, mode, member_of, app_id, vrf_name, pend_reason, status) '
-                    'select '
-                    'type, number, description, mode, member_of, app_id, '
-                    '"{0}" as vrf_name, "{1}" as pend_reason, status '
-                    'from interface where int_id={2}'.format(vrf_name, pending_reason, int_id), insert=True)
-
-                do_query('delete from interface where int_id={0}'.format(int_id))
-
-        if not pending:
-            for ip_entry in ip_add:
-                insert_ip_subnet(int_id, add_family_id, ip_entry[0], ip_entry[1])
-        else:
-            for ip_entry in ip_add:
-                insert_ip_subnet(int_id, add_family_id, ip_entry[0], ip_entry[1], True)
-
-    return index
-
-
 def find_vrf_interfaces(sw_id, vrf_id, include_default_vrf=False):
     """
     Find VRF related interfaces, groups all assigned IP address to each interface
@@ -1445,9 +1362,25 @@ def find_vrf_interfaces(sw_id, vrf_id, include_default_vrf=False):
 
                 if qr and qr[0]:
                     int_list[2] = int_list[2] + ' ({0})'.format(qr[0].strip())
+
+            if '.' in int_list[2]:
+                int_qr = do_query('select vlan.vlan_no from vlan '
+                                  'join int_vlan on vlan.vlan_id=int_vlan.vlan_id '
+                                  'join interface on int_vlan.int_id=interface.int_id '
+                                  'where interface.int_id={0} and vlan.exist=1;'.format(int_list[8]), True)
+                if int_qr:
+                    int_list[2] = int_list[2] + ' ({0})'.format(int_qr[0])
+
             if int_list[9] == 'shutdown':
                 int_list[2] = int_list[2] + ' (Shutdown)'
 
+            if int_list[6] == 'Port-Channel':
+                # qr = do_query('select group_concat(interface.type||interface.number ) '
+                #               'from interface where interface.member_of={0}'.format(int_list[8]), True)
+                # int_list[2] = int_list[2] + ' ({0})'.format(qr[0])
+                qr = do_query('select group_concat(substr(interface.type, 1, 3)||interface.number) '
+                              'from interface where interface.member_of={0}'.format(int_list[8]), True)
+                int_list[2] = int_list[2] + ' ({0})'.format(qr[0])
             list_interfaces.append(int_list)
 
         list_interfaces.sort(key=lambda item: sort_interface_num_key(item[7]))
@@ -1462,7 +1395,8 @@ def find_static_routes_summary(sw_id, vrf_id, include_null_values=True):
 
     qr = do_query(
         """
-        select ip_address.address as next_hop, interface.type||interface.number as interface, count(*) as c
+        select ip_address.address as next_hop, substr(interface.type, 1, 3)||interface.number as interface, 
+        count(*) as c, static_route.to_vrf_id
 
         from static_route
         join subnet on static_route.subnet_id = subnet.subnet_id
@@ -1474,156 +1408,576 @@ def find_static_routes_summary(sw_id, vrf_id, include_null_values=True):
         """.format(table_join, sw_id, vrf_id))
     if qr:
         next_hops = []
-        for next_hop in qr:
-            if next_hop[0]:
-                next_hops.append((next_hop[0][:next_hop[0].index('/')], next_hop[2]))
-            else:
-                next_hops.append((next_hop[1], next_hop[2]))
+        to_vrf = ''
 
+        for next_hop in qr:
+            if next_hop[3]:
+                # next hop in different vrf
+                to_vrf_qr = do_query('select vrf.name from vrf where vrf.vrf_id={0};'.format(next_hop[3]), True)
+                if to_vrf_qr and to_vrf_qr[0]:
+                    to_vrf = ' ->({0})'.format(to_vrf_qr[0])
+
+            if next_hop[0] and next_hop[1]:
+                next_hop_str = next_hop[0][:next_hop[0].index('/')] + ' ({0})'.format(next_hop[1]) + to_vrf
+
+            elif next_hop[0]:
+                next_hop_str = next_hop[0][:next_hop[0].index('/')] + to_vrf
+
+            else:
+                next_hop_str = next_hop[1] + to_vrf
+
+            next_hops.append((next_hop_str, next_hop[2]))
         return next_hops
     return ()
 
 
-def parse_interface(sw_id, lines, index):
+def parse_interface(sw_id, lines, index, int_type_name='', int_number=''):
+    """
+    port-channel, loopback, and normal interface ports
+
+    :param sw_id:
+    :param lines:
+    :param index:
+    :param int_type_name:
+    :param int_number:
+    :return:
+    """
     vrf_name = 'Default'
+    if len(do_query('select * from vrf where name="{0}" and app_id={1}'.format(vrf_name, sw_id))) == 0:
+        # make sure default VRF are inserted into the DB
+        insert_to_db('vrf', 'name, app_id', [vrf_name, sw_id])
+
+    sub_int_num = ''
+    encap_vlan_id = ''
+
+    if not int_type_name and not int_number:
+        match = re.match(rgx_interface, lines[index])
+        int_type_name = match['type']
+        int_number = match['number']
+        sub_int_num = match['sub'] if match['sub'] else ""
+
+    int_type = ''  # l2 or l3
+    mode = 'virtual' if int_type_name.lower() == 'loopback' else ''  # access, trunk or virtual (vlan, tunnel)
+    status = 'up'  # up or shutdown
+
     description = ''
     ip_add = []
+    allowed_vlans_ids = []
+    native_vlan_id = ''
 
-    add_family_id = 1
-    status = 'up'
+    access_vlans_ids = []
+    group_id = 0
+    group_mode = ''
 
-    if re.match(r'\s*[iI]nterface\s+[vV]lan(?P<number>.+)', lines[index]):
-        vlan_id = re.match(r'\s*[iI]nterface\s+[vV]lan(?P<number>.+)', lines[index])['number']
-        subnet = ''
+    index = index + 1
+    while lines[index] != '!' and index < len(lines):
+        if re.match(rgx_description, lines[index]):
+            description = re.match(rgx_description, lines[index])['description']
 
+        elif re.match(r'\s+encapsulation\s+dot1q\s+(?P<id>\d+)', lines[index]):
+            match_vlan = re.match(r'\s+encapsulation\s+dot1q\s+(?P<id>\d+)', lines[index])
+            encap_vlan_id = get_vlan_id(match_vlan['id'].strip(), sw_id)
+            if encap_vlan_id:
+                # get_vlan_id returns (vlan_str, vlan_db_id)
+                encap_vlan_id = encap_vlan_id[1]
+            if not encap_vlan_id:
+                encap_vlan_id = insert_to_db('vlan', 'vlan_no, name, app_id, exist', [match_vlan['id'], "", sw_id, 1])
+
+        elif check_interface_vrf_forwarding(lines[index]):
+            if not int_type:
+                int_type = 'l3'
+            elif int_type != 'l3':
+                print('Interface type may not be accurate for the interface "{0}" on line: {1}'.format(
+                    int_type_name + int_number, index))
+
+            vrf_name = match_interface_vrf_forwarding(lines[index])
+
+        elif check_if_ip_address(lines[index]):
+            if not int_type:
+                int_type = 'l3'
+            elif int_type != 'l3':
+                print('Interface type may not be accurate for the interface "{0}" on line: {1}'.format(
+                    int_type_name + int_number, index))
+
+            ip_add.append(match_ip_address(lines[index])[1])
+
+        elif re.match(r'\s+switchport\s*.*', lines[index]):
+            if not int_type:
+                int_type = 'l2'
+            elif int_type != 'l2':
+                print('Interface type may not be accurate for the interface "{0}" on line: {1}'.format(
+                    int_type_name + int_number, index))
+
+            index, mode, access_vlans_ids, allowed_vlans_ids, native_vlan_id = match_interface_switchport_statements(
+                sw_id, lines, index)
+
+        elif re.match(r'\s*channel-group\s*(?P<group_id>\d+)(\s*mode\s*(?P<mode>.+?))?\s*', lines[index]):
+            match = re.match(r'\s*channel-group\s*(?P<group_id>\d+)(\s*mode\s*(?P<mode>.+?))?\s*', lines[index])
+            group_id = match['group_id']
+            group_mode = match['mode'] if match['mode'] else ''
+
+        elif re.match(r'\s*shutdown\s*$', lines[index]):
+            status = 'shutdown'
+
+        elif re.match(r'\s+\w+', lines[index]):
+            # ignore unneeded lines under interface
+            if print_ignore_break:
+                print('Ignore line {0}: {1}'.format(index, lines[index]))
+            pass
+
+        elif is_interface_section_end(lines[index]):
+            if print_ignore_break:
+                print('Break line: ' + lines[index])
+            break
         index = index + 1
-        while lines[index] != '!' and index < len(lines):
-            if re.match(rgx_description, lines[index]):
-                description = re.match(rgx_description, lines[index])['description']
-            elif re.match(rgx_vrf_frd, lines[index]):
-                vrf_name = re.match(rgx_vrf_frd, lines[index])['vrf_name']
-            elif re.match(r'\s*vrf\s+forwarding\s+(?P<vrf_name>.+)', lines[index]):
-                vrf_name = re.match(r'\s*vrf\s+forwarding\s+(?P<vrf_name>.+)', lines[index])['vrf_name']
-            elif re.match(rgx_ip_add, lines[index]):
-                # IPv4 address
-                match = re.match(rgx_ip_add, lines[index])
-                ip = match['ip']
-                subnet = match['subnet']
 
-                if match.group('sec'):
-                    ip_add.append([ipaddress.ip_interface(ip + '/' + subnet), 'secondary'])
-                else:
-                    ip_add.append([ipaddress.ip_interface(ip + '/' + subnet), 'primary'])
+    int_vlan_table = 'int_vlan'
+    interface_table = 'interface'
+    pending = False
+    pending_reason = 'port-channel'
 
-            elif re.match(r'\s*standby\s*\d+\s+ip\s+(?P<vip>\d+\.\d+\.\d+\.\d+)', lines[index]):
-                vip = re.match(r'\s*standby\s*\d+\s+ip\s+(?P<vip>\d+\.\d+\.\d+\.\d+)', lines[index])['vip']
-                ip_add.append([ipaddress.ip_interface(vip + '/' + subnet), 'vip'])
-            elif re.match(r'\s*shutdown\s*$', lines[index]):
-                status = 'shutdown'
-            elif re.match(r'\s+\w+', lines[index]):
-                # ignore unneeded lines under interface
-                if print_ignore_break:
-                    print('Ignore line {0} {2}: {1}'.format(index, lines[index], sw_id))
-                pass
-            elif re.match(r'\s*!', lines[index]):
-                if print_ignore_break:
-                    print('break line: ' + lines[index])
-                break
-            index = index + 1
+    if int_type_name == 'Port-Channel':
+        int_id = insert_to_db('interface',
+                              'type, number, description, mode, app_id, status',
+                              [int_type_name, int_number, description, mode, sw_id, status])
+    else:
+        if group_id:
+            # if member of port-channel
+            group_int_id = do_query(
+                'select int_id from interface where type="Port-Channel" and number={0} and app_id={1}'.format(
+                    group_id, sw_id), True)
 
-        pending = False
-        pending_reason = 'vrf_id'
-        if vrf_name == 'Default' \
-                and len(do_query('select * from vrf where name="{0}" and app_id={1}'.format(vrf_name, sw_id))) == 0:
-            vrf_id = insert_to_db('vrf', 'name, app_id', [vrf_name, sw_id])
-            int_id = insert_to_db('interface', 'type, number, description, mode, app_id, vrf_id, status',
-                                  ['vlan', vlan_id, description, 'virtual', sw_id, vrf_id, status])
-
-        else:
-            qr = do_query('select vrf_id from vrf where name="{0}" and app_id={1}'.format(vrf_name, sw_id), True)
-            if qr:
-                vrf_id = qr[0]
-                int_id = insert_to_db('interface',
-                                      'type, number, description, mode, app_id, vrf_id, status',
-                                      ['vlan', vlan_id, description, 'virtual', sw_id, vrf_id, status])
+            if group_int_id:
+                int_id = insert_to_db(interface_table,
+                                      'type, number, description, mode, member_of, app_id, status',
+                                      [int_type_name, int_number, description, mode, group_int_id[0], sw_id, status])
             else:
-                int_id = insert_to_db('pending_interface',
-                                      'type, number, description, mode, app_id, vrf_name, pend_reason, status',
-                                      ['vlan', vlan_id, description, 'virtual', sw_id, vrf_name,
-                                       pending_reason, status])
                 pending = True
+                int_vlan_table = 'pend_int_vlan'  # pending because VLAN is configured for a pending interface
+                interface_table = 'pending_interface'
+                int_id = insert_to_db(interface_table,
+                                      'type, number, description, mode, group_id, app_id, pend_reason, status',
+                                      [int_type_name, int_number, description, mode,
+                                       group_id, sw_id, pending_reason, status])
+        else:
+            # is not a member of any port-channel
+            int_id = insert_to_db(interface_table,
+                                  'type, number, description, mode, app_id, status',
+                                  [int_type_name, int_number, description, mode, sw_id, status])
+
+    if mode == 'trunk':
+        if not native_vlan_id:
+            native_vlan_id = get_vlan_id('1', sw_id)
+
+        for vlan in allowed_vlans_ids:
+            if not vlan[1]:
+                # configured with allowed vlan but the vlan id doesn't exist
+                vlan_id = insert_to_db('vlan', 'vlan_no, app_id, exist',
+                                       [int(vlan[0]) if isinstance(vlan[0], str) else vlan[0], sw_id, 0])
+
+                insert_to_db(int_vlan_table, 'int_id, vlan_id, vlan_mode', [int_id, vlan_id, 'tagged'])
+            else:
+                insert_to_db(int_vlan_table, 'int_id, vlan_id, vlan_mode', [int_id, vlan[1], 'tagged'])
+
+        if not native_vlan_id[1]:
+            # configured with native vlan but the vlan id doesn't exist
+            vlan_id = insert_to_db('vlan', 'vlan_no, app_id, exist',
+                                   [int(native_vlan_id[0]) if isinstance(native_vlan_id[0], str) else native_vlan_id[0],
+                                    sw_id, 0])
+
+            insert_to_db(int_vlan_table, 'int_id, vlan_id, vlan_mode', [int_id, vlan_id, 'untagged'])
+        else:
+            insert_to_db(int_vlan_table, 'int_id, vlan_id, vlan_mode', [int_id, native_vlan_id[1], 'untagged'])
+
+    elif mode == 'access':
+        # mode access
+        for vlan in access_vlans_ids:
+            if vlan[1] or int_vlan_table == 'pending_int_vlan':
+                insert_to_db(int_vlan_table, 'int_id, vlan_id, vlan_mode', [int_id, vlan[0][1], vlan[1]])
+            else:
+                # vlan id is not available in DB
+                vlan_id = insert_to_db('vlan', 'vlan_no, app_id, exist',
+                                       [int(vlan[0]) if isinstance(vlan[0], str) else vlan[0], sw_id, 0])
+
+                insert_to_db(int_vlan_table, 'int_id, vlan_id, vlan_mode', [int_id, vlan_id, vlan[1]])
+
+    else:
+        # for L3 interfaces
+        qr = do_query('select vrf_id from vrf where name="{0}" and app_id={1}'.format(vrf_name, sw_id), True)
+        if qr:
+            if pending:
+                # pending_interface table doesn't have vrf_id field, adding that reason to update the other interface
+                # table with it later
+                pending_reason = pending_reason + ',vrf_id'
+                do_query(
+                    'update {0} set vrf_name="{1}", pend_reason="{2}" where int_id={3}'.format(
+                        interface_table, vrf_name, pending_reason, int_id))
+
+            if not pending:
+                vrf_id = qr[0]
+                # update the interface record wih vrf_id
+                do_query('update {0} set vrf_id={1} where int_id={2}'.format(interface_table, vrf_id, int_id))
+        else:
+            # update pending reason with vrf_id is unknown
+            if pending:
+                pending_reason = pending_reason + ',vrf_id'
+                do_query(
+                    'update {0} set vrf_name={1}, pend_reason={2} where int_id={3}'.format(
+                        interface_table, vrf_name, pending_reason, int_id))
+
+            else:
+                """
+                1) read the record from interface table
+                3) update it with pending reason and save to pend_interface table
+                2) delete int_id record in normal interface table                    
+                """
+                pending = True
+                pending_reason = 'vrf_id'
+                do_query(
+                    'insert into pending_interface '
+                    '(type, number, description, mode, member_of, app_id, vrf_name, pend_reason, status) '
+                    'select '
+                    'type, number, description, mode, member_of, app_id, '
+                    '"{0}" as vrf_name, "{1}" as pend_reason, status '
+                    'from interface where int_id={2}'.format(vrf_name, pending_reason, int_id), insert=True)
+
+                do_query('delete from interface where int_id={0}'.format(int_id))
 
         if not pending:
             for ip_entry in ip_add:
-                insert_ip_subnet(int_id, add_family_id, ip_entry[0], ip_entry[1])
+                insert_ip_subnet(int_id, ip_entry[0], ip_entry[1], ip_entry[2])
+
+            if sub_int_num:
+                insert_to_db(int_vlan_table, 'int_id, vlan_id, vlan_mode', [int_id, encap_vlan_id, 'untagged-access'])
+
         else:
             for ip_entry in ip_add:
-                insert_ip_subnet(int_id, add_family_id, ip_entry[0], ip_entry[1], True)
+                insert_ip_subnet(int_id, ip_entry[0], ip_entry[1], ip_entry[2], pending=True)
 
-    elif re.match(rgx_tunnel_interface, lines[index]):
-        tun_num = re.match(rgx_tunnel_interface, lines[index])['number']
-        tun_source = ()
-        tun_dest_ip = ''
+            if sub_int_num:
+                int_vlan_table = 'pending_int_vlan'
+                insert_to_db(int_vlan_table, 'int_id, vlan_id, vlan_mode', [int_id, encap_vlan_id, 'untagged-access'])
+
+    return index
+
+
+def match_interface_switchport_statements(sw_id, lines, index):
+    access_vlans_ids = []
+    allowed_vlans_ids = []
+    mode = ''
+    native_vlan_id = ''
+
+    while index < len(lines):
+
+        if re.match(r'\s*switchport\s*mode\s*(?P<mode>.+?)', lines[index]):
+            mode = re.match(r'\s*switchport\s*mode\s*(?P<mode>.+)', lines[index])['mode'].strip()
+
+        elif re.match(r'\s*switchport\s+access\s+vlan\s+(?P<access>.+)', lines[index]):
+            access_vlan = get_vlan_id(
+                re.match(r'\s*switchport\s+access\s+vlan\s+(?P<access>.+)', lines[index])['access'].strip(), sw_id)
+            access_vlans_ids.append([access_vlan, 'untagged-access'])
+
+        elif re.match(r'\s*switchport\s+voice\s+vlan\s+(?P<voice>.+)', lines[index]):
+            voice_vlan = get_vlan_id(
+                re.match(r'\s*switchport\s+voice\s+vlan\s+(?P<voice>.+)', lines[index])['voice'].strip(), sw_id)
+            access_vlans_ids.append([voice_vlan, 'untagged-voice'])
+
+        elif re.match(r'\s*switchport\s+trunk\s+allowed\s+vlan\s+(?P<ids>\d+(-\d+)?(,\d+(-\d+)?)*)', lines[index]):
+            match = re.match(
+                r'\s*switchport\s+trunk\s+allowed\s+vlan\s+(?P<ids>\d+(-\d+)?(,\d+(-\d+)?)*)', lines[index])
+            allowed_vlans_ids.extend(get_vlan_id(int(vlan), sw_id) for vlan in get_vlan_numbers(match['ids']))
+
+        elif re.match(r'\s*switchport\s+trunk\s+allowed\s+vlan\s+add\s+(?P<ids>\d+(-\d+)?(,\d+(-\d+)?)*)', lines[index]):
+            match = re.match(
+                r'\s*switchport\s+trunk\s+allowed\s+vlan\s+add\s+(?P<ids>\d+(-\d+)?(,\d+(-\d+)?)*)', lines[index])
+            allowed_vlans_ids.extend(get_vlan_id(int(vlan), sw_id) for vlan in get_vlan_numbers(match['ids']))
+
+        elif re.match(r'\s*switchport\s+trunk\s+native\s+vlan\s+(?P<native>\d+)', lines[index]):
+            match = re.match(r'\s*switchport\s+trunk\s+native\s+vlan\s+(?P<native>\d+)', lines[index])
+            native_vlan_id = get_vlan_id(match['native'], sw_id)
+
+        if re.match(r'\s+switchport\s*.*', lines[index + 1]):
+            index = index + 1
+        else:
+            break
+
+    return index, mode, access_vlans_ids, allowed_vlans_ids, native_vlan_id
+
+
+def check_interface_vrf_forwarding(line):
+    """
+    Returns IOS version if the passed line assigns the current interface to a VRF
+    Different IOS has different syntax
+
+    :param line: configuration line passed from an interface parsing function
+    :return: ios_ver
+    """
+
+    if re.match(rgx_vrf_fwd, line):
+        ios_ver = 'ios'
+
+    elif re.match(rgx_xr_vrf, line):
+        ios_ver = 'xr'
+
+    elif re.match(rgx_nx_vrf_fwd, line):
+        ios_ver = 'nx'
+
+    else:
+        return False
+
+    return ios_ver
+
+
+def match_interface_vrf_forwarding(line):
+    ver = check_interface_vrf_forwarding(line)
+    if ver == 'ios':
+        vrf_name = re.match(rgx_vrf_fwd, line)['vrf_name']
+
+    elif ver == 'xr':
+        vrf_name = re.match(rgx_xr_vrf, line)['vrf_name']
+
+    elif ver == 'nx':
+        vrf_name = re.match(rgx_nx_vrf_fwd, line)['vrf_name']
+
+    else:
+        return False
+
+    return vrf_name
+
+
+def is_interface_section_end(line):
+    if re.match(r'!\s*', line) or re.match(r'\s*$', line) or re.match(r'\S', line):
+        return True
+    else:
+        return False
+
+
+def check_if_ip_address(line):
+
+    if re.match(rgx_ipv6_add, line):
+        # IPv6 address
+        return 6
+
+    elif re.match(rgx_nx_ip_add, line):
+        return 4, 'nx'
+
+    elif re.match(rgx_ip_add, line):
+        # IPv4 address
+        return 4
+
+    else:
+        return False
+
+
+def match_ip_address(line):
+    ver = check_if_ip_address(line)
+
+    if not isinstance(ver, tuple) and ver == 4:
+        # IPv4 address
+        match = re.match(rgx_ip_add, line)
+        ip = match['ip']
+        subnet = match['subnet']
+
+        if match.group('sec'):
+            return subnet, [add_family_v4_id, ipaddress.ip_interface(ip + '/' + subnet), 'secondary']
+        else:
+            return subnet, [add_family_v4_id, ipaddress.ip_interface(ip + '/' + subnet), 'primary']
+
+    elif isinstance(ver, tuple) and ver[0] == 4 and ver[1] == 'nx':
+        match = re.match(rgx_nx_ip_add, line)
+        ip = match['ip']
+        subnet = match['subnet']
+
+        if match.group('sec'):
+            return subnet, [add_family_v4_id, ipaddress.ip_interface(ip + '/' + subnet), 'secondary']
+        else:
+            return subnet, [add_family_v4_id, ipaddress.ip_interface(ip + '/' + subnet), 'primary']
+
+    elif ver == 6:
+        # IPv6 address
+        match = re.match(rgx_ipv6_add, line)
+        ip = match['ip_add']
+        subnet = match['subnet'] if match['subnet'] else 64
+        ip_type = match['type'] if match['type'] else ""
+
+        if ip_type:
+            return subnet, [add_family_v6_id, ipaddress.ip_interface(ip), ip_type]
+        else:
+            return subnet, [add_family_v6_id, ipaddress.ip_interface(ip), 'global']
+
+    else:
+        return False
+
+
+def parse_interface_vlan(sw_id, lines, index):
+    ip_add = []
+    vrf_name = 'Default'
+    mode = 'virtual'
+    status = 'up'  # up or shutdown
+
+    subnet = ''
+    description = ''
+
+    vlan_id = re.match(r'\s*[iI]nterface\s+[vV]lan(?P<number>.+)', lines[index])['number']
+
+    index = index + 1
+    while index < len(lines) and lines[index] != '!':
+
+        if not lines[index].strip():
+            break
+
+        if re.match(rgx_description, lines[index]):
+            description = re.match(rgx_description, lines[index])['description']
+
+        elif check_interface_vrf_forwarding(lines[index]):
+            vrf_name = match_interface_vrf_forwarding(lines[index])
+
+        elif check_if_ip_address(lines[index]):
+            subnet, ips = match_ip_address(lines[index])
+            ip_add.append(ips)
+
+        elif re.match(r'\s*standby\s*\d+\s+ip\s+(?P<vip>\d+\.\d+\.\d+\.\d+)', lines[index]):
+            vip = re.match(r'\s*standby\s*\d+\s+ip\s+(?P<vip>\d+\.\d+\.\d+\.\d+)', lines[index])['vip']
+            ip_add.append([add_family_v4_id, ipaddress.ip_interface(vip + '/' + subnet if subnet else '32'), 'vip'])
+
+        elif re.match(r'\s+hsrp\s+(?P<group>\d+)', lines[index]):
+            while index + 1 < len(lines):
+                index = index + 1
+                match = re.match(rgx_ip_add, lines[index])
+                if match:
+                    vip = match['ip']
+                    ip_add.append([add_family_v4_id,
+                                   ipaddress.ip_interface(vip + '/' + subnet if subnet else '32'), 'vip'])
+                    break
+                elif re.match(r'\s+\S+', lines[index]):
+                    continue
+                elif is_interface_section_end(lines[index]):
+                    break
+
+        elif re.match(r'\s*shutdown\s*$', lines[index]):
+            status = 'shutdown'
+
+        elif re.match(r'\s+\w+', lines[index]):
+            # ignore unneeded lines under interface
+            if print_ignore_break:
+                print('Ignore line {0} {2}: {1}'.format(index, lines[index], sw_id))
+
+        elif is_interface_section_end(lines[index]):
+            if print_ignore_break:
+                print('break line: ' + lines[index])
+            break
 
         index = index + 1
-        while lines[index] != '!' and index < len(lines):
-            if re.match(rgx_description, lines[index]):
-                description = re.match(rgx_description, lines[index])['description']
-            elif re.match(rgx_vrf_frd, lines[index]):
-                vrf_name = re.match(rgx_vrf_frd, lines[index])['vrf_name']
-            elif re.match(r'\s*vrf\s+forwarding\s+(?P<vrf_name>.+)', lines[index]):
-                vrf_name = re.match(r'\s*vrf\s+forwarding\s+(?P<vrf_name>.+)', lines[index])['vrf_name']
-            elif re.match(rgx_ip_add, lines[index]):
-                # IPv4 address
-                match = re.match(rgx_ip_add, lines[index])
-                ip = match['ip']
-                subnet = match['subnet']
 
-                if match.group('sec'):
-                    ip_add.append([ipaddress.ip_interface(ip + '/' + subnet), 'secondary'])
-                else:
-                    ip_add.append([ipaddress.ip_interface(ip + '/' + subnet), 'primary'])
+    pending = False
+    pending_reason = 'vrf_id'
 
-            elif re.match(r'\s*tunnel\s+source\s+(?P<tun_src>\d+\.\d+\.\d+\.\d+)', lines[index]):
-                match = re.match(r'\s*tunnel\s+source\s+(?P<tun_src>\d+\.\d+\.\d+\.\d+)', lines[index])
-                tun_source = ('source_ip', match['tun_src'])
+    qr = do_query('select vrf_id from vrf where name="{0}" and app_id={1}'.format(vrf_name, sw_id), one_row=True)
+    if vrf_name == 'Default' and not qr:
+        vrf_id = insert_to_db('vrf', 'name, app_id', [vrf_name, sw_id])
+        int_id = insert_to_db('interface', 'type, number, description, mode, app_id, vrf_id, status',
+                              ['vlan', vlan_id, description, mode, sw_id, vrf_id, status])
 
-            elif re.match(r'\s*tunnel\s+source\s+(?P<tun_src>(?P<type>[^0-9]+)(?P<number>.+))', lines[index]):
-                match = re.match(r'\s*tunnel\s+source\s+(?P<tun_src>(?P<type>[^0-9]+)(?P<number>.+))', lines[index])
-                tun_source = ('source_int', match['tun_src'])
+    else:
+        if qr:
+            vrf_id = qr[0]
+            int_id = insert_to_db('interface',
+                                  'type, number, description, mode, app_id, vrf_id, status',
+                                  ['vlan', vlan_id, description, mode, sw_id, vrf_id, status])
+        else:
+            int_id = insert_to_db('pending_interface',
+                                  'type, number, description, mode, app_id, vrf_name, pend_reason, status',
+                                  ['vlan', vlan_id, description, mode, sw_id, vrf_name,
+                                   pending_reason, status])
+            pending = True
 
-            elif re.match(r'\s*tunnel\s+destination\s+(?P<tun_dest>\d+\.\d+\.\d+\.\d+)', lines[index]):
-                match = re.match(r'\s*tunnel\s+destination\s+(?P<tun_dest>\d+\.\d+\.\d+\.\d+)', lines[index])
-                tun_dest_ip = match['tun_dest']
-            elif re.match(r'\s*shutdown\s*$', lines[index]):
-                status = 'shutdown'
-            elif re.match(r'\s+\w+', lines[index]):
-                # ignore unneeded lines under interface
-                if print_ignore_break:
-                    print('Ignore line {0}: {1}'.format(index, lines[index]))
-                pass
-            elif re.match(r'\s*!', lines[index]):
-                if print_ignore_break:
-                    print('break line: ' + lines[index])
-                break
-            index = index + 1
-
-        tun_id = insert_to_db('pending_tunnel_int', '{0}, dest_ip'.format(tun_source[0]), [tun_source[1], tun_dest_ip])
-        int_id = insert_to_db('pending_interface',
-                              'type, number, description, mode, app_id, vrf_name, tunnel_id, status',
-                              ['tunnel', tun_num, description, 'virtual', sw_id, vrf_name, tun_id, status])
-
+    if not pending:
         for ip_entry in ip_add:
-            insert_ip_subnet(int_id, add_family_id, ip_entry[0], ip_entry[1], True)
+            insert_ip_subnet(int_id, ip_entry[0], ip_entry[1], ip_entry[2])
+    else:
+        for ip_entry in ip_add:
+            insert_ip_subnet(int_id, ip_entry[0], ip_entry[1], ip_entry[2], pending=True)
 
-        insert_ip_subnet(None, add_family_id, tun_dest_ip + '/32', 'tunnel-destination')
+    return index
+
+
+def parse_interface_tunnel(sw_id, lines, index):
+    tun_num = re.match(rgx_tunnel_interface, lines[index])['number']
+    tun_source = ()
+    tun_dest_ip = ''
+    ip_add = []
+    description = ''
+    vrf_name = 'Default'
+    mode = 'virtual'
+    status = 'up'  # up or shutdown
+
+    index = index + 1
+    while lines[index] != '!' and index < len(lines):
+        if re.match(rgx_description, lines[index]):
+            description = re.match(rgx_description, lines[index])['description']
+
+        elif check_interface_vrf_forwarding(lines[index]):
+            vrf_name = match_interface_vrf_forwarding(lines[index])
+
+        elif check_if_ip_address(lines[index]):
+            ip_add.append(match_ip_address(lines[index])[1])
+
+        elif re.match(r'\s*tunnel\s+source\s+(?P<tun_src>\d+\.\d+\.\d+\.\d+)', lines[index]):
+            match = re.match(r'\s*tunnel\s+source\s+(?P<tun_src>\d+\.\d+\.\d+\.\d+)', lines[index])
+            tun_source = ('source_ip', match['tun_src'])
+
+        elif re.match(r'\s*tunnel\s+source\s+(?P<tun_src>(?P<type>[^0-9]+)(?P<number>.+))', lines[index]):
+            match = re.match(r'\s*tunnel\s+source\s+(?P<tun_src>(?P<type>[^0-9]+)(?P<number>.+))', lines[index])
+            tun_source = ('source_int', match['tun_src'])
+
+        elif re.match(r'\s*tunnel\s+destination\s+(?P<tun_dest>\d+\.\d+\.\d+\.\d+)', lines[index]):
+            match = re.match(r'\s*tunnel\s+destination\s+(?P<tun_dest>\d+\.\d+\.\d+\.\d+)', lines[index])
+            tun_dest_ip = match['tun_dest']
+
+        elif re.match(r'\s*shutdown\s*$', lines[index]):
+            status = 'shutdown'
+
+        elif re.match(r'\s+\w+', lines[index]):
+            # ignore unneeded lines under interface
+            if print_ignore_break:
+                print('Ignore line {0}: {1}'.format(index, lines[index]))
+            pass
+
+        elif is_interface_section_end(lines[index]):
+            if print_ignore_break:
+                print('break line: ' + lines[index])
+            break
+
+        index = index + 1
+
+    tun_id = insert_to_db('pending_tunnel_int', '{0}, dest_ip'.format(tun_source[0]), [tun_source[1], tun_dest_ip])
+    int_id = insert_to_db('pending_interface',
+                          'type, number, description, mode, app_id, vrf_name, tunnel_id, status',
+                          ['tunnel', tun_num, description, mode, sw_id, vrf_name, tun_id, status])
+
+    for ip_entry in ip_add:
+        insert_ip_subnet(int_id, ip_entry[0], ip_entry[1], ip_entry[2], pending=True)
+
+    insert_ip_subnet(None, add_family_v4_id, tun_dest_ip + '/32', 'tunnel-destination')
+
+    return index
+
+
+def parse_all_interface_type(sw_id, ios_ver, lines, index):
+
+    if re.match(r'\s*[iI]nterface\s+[vV]lan(?P<number>.+)', lines[index]):
+        index = parse_interface_vlan(sw_id, lines, index)
+
+    elif re.match(rgx_tunnel_interface, lines[index]):
+        index = parse_interface_tunnel(sw_id, lines, index)
 
     elif re.match(r'\s*[iI]nterface\s+[pP]ort-channel(?P<number>.+)', lines[index]):
         number = re.match(r'\s*[iI]nterface\s+[pP]ort-channel(?P<number>.+)', lines[index])['number']
-        index = parse_switchport(lines, index + 1, 'channel-group', number, sw_id)
+        index = parse_interface(sw_id, lines, index + 1, int_type_name='Port-Channel', int_number=number)
+
     else:
-        match = re.match(rgx_interface, lines[index])
-        index = parse_switchport(lines, index + 1, match.group('type'), match.group('number'), sw_id)
+        # match = re.match(rgx_interface, lines[index])
+        index = parse_interface(sw_id, lines, index)
 
     return index + 1
 
@@ -1662,7 +2016,7 @@ def parse_vlan(lines, index, sw_id):
             if print_ignore_break:
                 print('Ignore line {0}: {1}'.format(index, lines[index]))
             pass
-        elif re.match(r'\s*!', lines[index]):
+        elif re.match(r'\s*!', lines[index]) or re.match(r'\S+', lines[index]):
             if print_ignore_break:
                 print('break line: ' + lines[index])
             break
@@ -1676,7 +2030,7 @@ def parse_vlan(lines, index, sw_id):
 
 
 def parse_static_route(lines, index, sw_id):
-    match = re.match(rgx_static_route, lines[index])
+    match = re.match(rgx_ios_static_route, lines[index])
 
     vrf_name = match['vrf']
     if not vrf_name:
@@ -1684,6 +2038,8 @@ def parse_static_route(lines, index, sw_id):
     ip_next_hop = match['ip_next_hop']
     int_type = match['type'].lower() if match['type'] else match['type']
     int_number = match['number']
+    if match['sub_int']:
+        int_number = int_number + match['sub_int']
     ad = match['ad']
     if not ad:
         ad = 1
@@ -1706,166 +2062,122 @@ def parse_static_route(lines, index, sw_id):
     return index + 1
 
 
-def parse_show_vlan(lines, index, sw_id):
-    index = index + 1
-    breaks = [r'\s*VLAN\s+Type\s+SAID\s+MTU\s+Parent\s+RingNo\s+BridgeNo\s+Stp\s+BrdgMode\s+Trans1\s+Trans2',
-              r'\s*VLAN\s+AREHops\s+STEHops\s+Backup\s+CRF',
-              r'\s*Remote\s+SPAN\s+VLANs',
-              r'\s*Primary\s+Secondary\s+Type\s+Ports']
+def parse_xr_static_route_entry(sw_id, match, vrf_name, add_fam='IPv4'):
+    net = match['net']
+    mask = match['mask']
+    sub_id = get_subnet_id(ipaddress.ip_interface(net + '/' + mask))
 
-    rgx_vlan_id_line = r'\s*(?P<vlan_id>\d+)\s+(?P<name>.+?)\s+' \
-                       r'(?P<status>[a-zA-Z]+)\s+(?P<ports>((\w+[0-9\\/]*)(,\s*)?)*)'
-    rgx_vlan_id_rem = r'\s+(?P<rem_ports>((\w+[0-9\\/]*)(,\s*)?)*)'
+    to_vrf = match['vrf'] if match['vrf'] else None
+
+    int_type = match['type'] if match['type'] else ""
+    int_number = match['number'] if match['number'] else ""
+    if match['sub_int']:
+        int_number = int_number + match['sub_int']
+
+    ip_next_hop = match['ip_next_hop'] if match['ip_next_hop'] else ""
+    ad = match['ad'] if not match['ad'] else ""
+    description = match['description'] if match['description'] else ""
+
+    insert_to_db(
+        'pend_static_route',
+        'next_hop_ip, next_hop_int_type, next_hop_int_number, vrf_name, '
+        'subnet_id, ad_distance, name, add_fam_id, app_id, to_vrf_name',
+        [ip_next_hop, int_type, int_number, vrf_name, sub_id, ad, description, add_fam, sw_id, to_vrf])
+
+
+def parse_xr_vrf_address_family_section(sw_id, lines, index, vrf='Default'):
+
+    add_fam = 'IP' + re.match(rgx_add_family, lines[index])['add_family']
+
+    index = index + 1
+    while index < len(lines):
+        if re.match(rgx_xr_static_route_entry, lines[index]):
+            match = re.match(rgx_xr_static_route_entry, lines[index])
+            parse_xr_static_route_entry(sw_id, match, vrf, add_fam)
+
+        elif re.match(r'\s*!', lines[index]):
+            break
+        else:
+            print("1 Unkown static route line, index:{0}, line: {1}".format(index, lines[index]))
+
+        index = index + 1
+
+    return index - 1  # as index will be increased after return, if not -1 one line will be passed without processing
+
+
+def parse_xr_static_route(lines, index, sw_id):
+
+    rgx_vrf = r'\svrf\s+(?P<vrf>.+)'
+
+    index = index + 1
 
     while index < len(lines):
-        match = re.match(rgx_vlan_id_line, lines[index])
-        if match:
-            vlan_id = int(match['vlan_id'])
-            vlan_name = match['name']
-            ports = match['ports']
-            while True:
-                if re.match(rgx_vlan_id_rem, lines[index + 1]):
-                    index = index + 1
-                    ports = ports + ',' + re.match(rgx_vlan_id_rem, lines[index])['rem_ports']
-                else:
-                    break
-            ports = [x.strip() for x in ports.split(',')]
+        if re.match(rgx_add_family, lines[index]):
+            # Under default VRF
+            index = parse_xr_vrf_address_family_section(sw_id, lines, index)
 
-            insert_to_db('vlan', 'vlan_no, name, app_id, exist', [vlan_id, vlan_name, sw_id, 1])
+        elif re.match(rgx_vrf, lines[index]):
+            vrf = re.match(rgx_vrf, lines[index])['vrf']
+            index = index + 1
+
+            while index < len(lines):
+
+                if re.match(rgx_add_family, lines[index]):
+                    # Under a named VRF
+                    index = parse_xr_vrf_address_family_section(sw_id, lines, index, vrf)
+
+                elif not re.match(r'\s+!', lines[index]):
+                    print('3 Unkown static route line, index:{0}, line: "{1}"'.format(index, lines[index]))
+
+                elif re.match(r'\s!', lines[index]):
+                    break
+
+                index = index + 1
+
+        elif re.match(r'\S+', lines[index]) or re.match(rgx_vrf, lines[index]):
+            return index
 
         index = index + 1
-        if re.match(rgx_host, lines[index]) \
-                or re.match(breaks[0], lines[index]) \
-                or re.match(breaks[1], lines[index]) \
-                or re.match(breaks[2], lines[index])\
-                or re.match(breaks[3], lines[index]):
-            break
-
-    return index
 
 
-def parse_cdp_nei(lines, index, sw_id):
+def parse_xr_router_bgp(lines, index, sw_id):
     index = index + 1
 
-    """Capability Codes: R - Router, T - Trans Bridge, B - Source Route Bridge
-                  S - Switch, H - Host, I - IGMP, r - Repeater, P - Phone
-    """
-    rgx_neig = r'(?P<neighbor>.+?)\s+(?P<local_int>(?P<type1>[^0-9]+?)\s*(?P<number1>[0-9\\/]+))\s+' \
-               r'(?P<holdtime>\d+)\s+(?P<capab>([RTBSHIrP]\s)+)\s+' \
-               r'(?P<platform>(WS-C.+?)?(CISCO.+?)?(AIR-C.+?)?(IP\s+Phone)?(N\dK-C.+?)?(\d+)?)\s+' \
-               r'(?P<remote_int>(?P<type2>[^0-9]+?)\s*(?P<number2>[0-9\\/]+))'
-    while True:
-        if re.match(rgx_neig, lines[index]):
-            match = re.match(rgx_neig, lines[index])
-            neigh = match['neighbor']
-            local_int = match['local_int']
-            remote_int = match['remote_int']
-            capabilities = match['capab']
-            platform = match['platform']
+    while index < len(lines):
+        match = re.match(r'\svrf\s(?P<vrf_name>.+)', lines[index])
+        if match:
+            vrf_name = match['vrf_name']
+            while index < len(lines):
+                index = index + 1
+                rd_match = re.match(r'\s\srd\s(?P<rd>\d+(:\d+)?)', lines[index])
+                if rd_match:
+                    # update the VRF RD into the DB
+                    vrf_id = do_query(
+                        'select vrf.vrf_id, vrf.rd, appliance.app_id '
+                        'from vrf '
+                        'join appliance on vrf.app_id = appliance.app_id '
+                        'where appliance.app_id = {0} and vrf.name="{1}";'.format(sw_id, vrf_name), one_row=True)
+                    if vrf_id:
+                        insert_to_db('vrf', 'rd', [rd_match['rd'].strip()])
+                    else:
+                        # add this VRF, print notification
+                        insert_to_db('vrf', 'name, rd, app_id', [vrf_name, rd_match['rd'].strip(), sw_id])
+                        print('VRF is only available under BGP, Appliance: {0}, vrf name: "{1}", line: "{2}"'.format(
+                            do_query('select hostname from appliance where app_id={0};'.format(sw_id), one_row=True),
+                            vrf_name, lines[index]
+                        ))
 
-        elif re.match(rgx_neig, lines[index] + lines[index + 1]):
-            match = re.match(rgx_neig, lines[index] + lines[index + 1])
-            neigh = match['neighbor']
-            local_int = match['local_int']
-            remote_int = match['remote_int']
-            capabilities = match['capab']
-            platform = match['platform']
+                elif re.match(r'\s\S+', lines[index]):
+                    # another BGP configuration section other than the last VRF
+                    break
 
-            index = index + 2
-            continue
-
-        elif re.match(rgx_host, lines[index]):
+        if re.match(r'\S+', lines[index]):
+            # outside BGP section
             break
 
         index = index + 1
 
     return index
-
-
-def parse_log_file(log_file, site_id):
-    hostname = ''
-    sw_id = None
-    vrfs = []
-    vrf_rt_to_name = {}
-    with open(log_file, "r+b") as f:
-        data = f.read()
-        # For converting from UTF-8 BOM to UTF-8
-        data = data.decode("utf-8-sig")
-        lines = data.splitlines()
-
-        i = 0
-        while i < len(lines):
-
-            if not hostname \
-                    and (re.match(rgx_host, lines[i]) or re.match(r'\s*hostname\s*(?P<hostname>.+)', lines[i])):
-
-                hostname = re.match(rgx_host, lines[i])['hostname']
-                if not hostname:
-                    hostname = re.match(r'\s*hostname\s*(?P<hostname>.+)', lines[i])
-
-                sw_id = insert_to_db('appliance', 'hostname, site_id', [hostname, site_id])
-                match = re.match(r'\s*((\w:)?(.+?[\\/]{1,2})*)(?P<name>(?P<num>\d*)\s*(.+?)(\.\w+))', log_file)
-
-                insert_to_db('log_file',
-                             'filename, file_text, app_id, importance',
-                             [match['name'], str(data), sw_id, int(match['num']) if match['num'] else 0])
-                del data
-
-                if len(vrfs) > 0:
-                    for vrf in vrfs:
-                        insert_vrf_to_db(vrf[0], vrf[1], vrf[2], vrf[3], vrf[4])
-                    vrfs = []
-
-            if re.match(rgx_show_run_sec, lines[i]):
-                i = i + 1
-                while i < len(lines):
-
-                    if re.match(rgx_ip_vrf, lines[i]) and not re.match(rgx_vrf_frd, lines[i]):
-                        # add_family 'IPv4' id = 1
-                        # imp_exp = [exports, imports]
-
-                        vrf_name = re.match(rgx_ip_vrf, lines[i])['vrf_name']
-                        rd, imp_exp, description, i = parse_vrf(lines, i, vrf_name, vrf_rt_to_name)
-                        if sw_id:
-                            insert_vrf_to_db(sw_id, vrf_name, rd, imp_exp, description)
-                        else:
-                            vrfs.append([sw_id, vrf_name, rd, imp_exp, description])
-
-                    elif re.match(rgx_vrf_def, lines[i]):
-                        # imp_exp = [exports, imports, exportsv6, importsv6]
-                        vrf_name = re.match(rgx_vrf_def, lines[i])['vrf_name']
-                        rd, imp_exp, description, i = parse_vrf(lines, i, vrf_name, vrf_rt_to_name, vrf_def=True)
-                        if sw_id:
-                            insert_vrf_to_db(sw_id, vrf_name, rd, imp_exp, description)
-                        else:
-                            vrfs.append([sw_id, vrf_name, rd, imp_exp, description])
-
-                    elif re.match(r'\s*vlan\s+(?P<id>\d+(-\d+)?(,\d+(-\d+)?)*)', lines[i]):
-                        i = parse_vlan(lines, i, sw_id)
-
-                    elif re.match(rgx_static_route, lines[i]):
-                        i = parse_static_route(lines, i, sw_id)
-
-                    elif re.match(rgx_interface, lines[i]):
-                        i = parse_interface(sw_id, lines, i)
-
-                    elif re.match(rgx_host, lines[i]) or re.match(r'end\s*$', lines[i]):
-                        break
-
-                    else:
-                        i = i + 1
-
-            elif re.match(rgx_vlan_sec, lines[i]):
-                i = parse_show_vlan(lines, i, sw_id)
-
-            elif re.match(rgx_cdp_nei_sec, lines[i]):
-                i = parse_cdp_nei(lines, i, sw_id)
-
-            else:
-                # print('Unknown line: ', lines[i])
-                i = i + 1
-        if not hostname:
-            print("Hostname couldn't be found for app_id: {0}".format(sw_id))
 
 
 def update_ip_address_int_id(old_int_id, new_int_id):
@@ -1907,7 +2219,7 @@ def get_int_id(sw_id, int_type, int_number):
     if sw_id and int_type and int_number:
         qr = do_query(
             'select int_id from interface '
-            'where app_id={0} and type="{1}" and number={2};'.format(sw_id, int_type, int(int_number)), True)
+            'where app_id={0} and type="{1}" and number="{2}";'.format(sw_id, int_type, int_number), True)
         if qr:
             return qr[0]
         else:
@@ -2014,7 +2326,7 @@ def process_pending_tables():
     # process pending static routes
     qr = do_query(
         'select next_hop_ip, next_hop_int_type, next_hop_int_number, vrf_name, '
-        'subnet_id, ad_distance, name, add_fam_id, app_id, route_id '
+        'subnet_id, ad_distance, name, add_fam_id, app_id, route_id, to_vrf_name '
         'from pend_static_route;')
     if qr:
         for row in qr:
@@ -2027,20 +2339,313 @@ def process_pending_tables():
 
             next_hop_int_id = get_int_id(sw_id, row[1], row[2])
             vrf_id = get_vrf_id(row[3], sw_id)
+            to_vrf_id = get_vrf_id(row[10], sw_id)
             sub_id = row[4]
             ad = row[5]
             name = row[6]
 
             insert_to_db('static_route',
-                         'app_id, next_hop_ip, next_hop_int, vrf_id, subnet_id, ad_distance, name, add_fam_id',
-                         [sw_id, next_hop_ip_id, next_hop_int_id, vrf_id, sub_id, ad, name, add_fam_id])
+                         'app_id, next_hop_ip, next_hop_int, vrf_id, subnet_id, ad_distance, name, '
+                         'add_fam_id, to_vrf_id',
+                         [sw_id, next_hop_ip_id, next_hop_int_id, vrf_id, sub_id, ad, name, add_fam_id, to_vrf_id])
 
             do_query('delete from pend_static_route where route_id={0};'.format(old_route_id))
 
 
+def parse_show_vlan(lines, index, sw_id):
+    index = index + 1
+    breaks = [r'\s*VLAN\s+Type\s+SAID\s+MTU\s+Parent\s+RingNo\s+BridgeNo\s+Stp\s+BrdgMode\s+Trans1\s+Trans2',
+              r'\s*VLAN\s+AREHops\s+STEHops\s+Backup\s+CRF',
+              r'\s*Remote\s+SPAN\s+VLANs',
+              r'\s*Primary\s+Secondary\s+Type\s+Ports']
+
+    rgx_vlan_id_line = r'\s*(?P<vlan_id>\d+)\s+(?P<name>.+?)\s+' \
+                       r'(?P<status>[a-zA-Z]+)\s+(?P<ports>((\w+[0-9\\/]*)(,\s*)?)*)'
+    rgx_vlan_id_rem = r'\s+(?P<rem_ports>((\w+[0-9\\/]*)(,\s*)?)*)'
+
+    while index < len(lines):
+        match = re.match(rgx_vlan_id_line, lines[index])
+        if match:
+            vlan_id = int(match['vlan_id'])
+            vlan_name = match['name']
+            ports = match['ports']
+            while True:
+                if re.match(rgx_vlan_id_rem, lines[index + 1]):
+                    index = index + 1
+                    ports = ports + ',' + re.match(rgx_vlan_id_rem, lines[index])['rem_ports']
+                else:
+                    break
+            ports = [x.strip() for x in ports.split(',')]
+
+            insert_to_db('vlan', 'vlan_no, name, app_id, exist', [vlan_id, vlan_name, sw_id, 1])
+
+        index = index + 1
+        if re.match(rgx_host, lines[index]) \
+                or re.match(breaks[0], lines[index]) \
+                or re.match(breaks[1], lines[index]) \
+                or re.match(breaks[2], lines[index])\
+                or re.match(breaks[3], lines[index]):
+            break
+
+    return index
+
+
+def parse_cdp_nei(lines, index, sw_id):
+    index = index + 1
+
+    """Capability Codes: R - Router, T - Trans Bridge, B - Source Route Bridge
+                  S - Switch, H - Host, I - IGMP, r - Repeater, P - Phone
+    """
+    rgx_neig = r'(?P<neighbor>.+?)\s+(?P<local_int>(?P<type1>[^0-9]+?)\s*(?P<number1>[0-9\\/]+))\s+' \
+               r'(?P<holdtime>\d+)\s+(?P<capab>([RTBSHIrP]\s)+)\s+' \
+               r'(?P<platform>(WS-C.+?)?(CISCO.+?)?(AIR-C.+?)?(IP\s+Phone)?(N\dK-C.+?)?(\d+)?)\s+' \
+               r'(?P<remote_int>(?P<type2>[^0-9]+?)\s*(?P<number2>[0-9\\/]+))'
+    while True:
+        if re.match(rgx_neig, lines[index]):
+            match = re.match(rgx_neig, lines[index])
+            neigh = match['neighbor']
+            local_int = match['local_int']
+            remote_int = match['remote_int']
+            capabilities = match['capab']
+            platform = match['platform']
+
+        elif re.match(rgx_neig, lines[index] + lines[index + 1]):
+            match = re.match(rgx_neig, lines[index] + lines[index + 1])
+            neigh = match['neighbor']
+            local_int = match['local_int']
+            remote_int = match['remote_int']
+            capabilities = match['capab']
+            platform = match['platform']
+
+            index = index + 2
+            continue
+
+        elif re.match(rgx_host, lines[index]):
+            break
+
+        index = index + 1
+
+    return index
+
+
+def parse_show_inventory(lines, index, sw_id):
+    """
+NAME: "Chassis 1 WS-C6509-E", DESCR: "Chassis 1 Cisco Systems, Inc. Catalyst 6500 9-slot Chassis System"
+PID: WS-C6509-E        ,                     VID: V07, SN: SMC2122001E
+
+NAME: "0/0/*", DESCR: "Cisco CRS-1 Series Forwarding Processor 40G"
+PID: CRS-FP40, VID: V03, SN: SAD1351020H
+    [0-9a-zA-Z\\/*=+ ,.-]
+
+    :param lines:
+    :param index:
+    :param sw_id:
+    :return:
+    """
+    # str1 = 'NAME: "Chassis 1 WS-C6509-E", DESCR: "Chassis 1 Cisco Systems, Inc. Catalyst 6500 9-slot Chassis System"'
+    # str2 = 'PID: WS-C6509-E        ,                     VID: V07, SN: SMC2122001E'
+
+    module = {}
+    number_of_modules = 0
+    line_no = 1
+
+    rgx_att_val_l1 = r'(?P<attribute>\w{3,7}):\s*"?(?P<value>[0-9a-zA-Z\\/*=+ ,.-]+)"?,?'
+    rgx_att_val_l2 = r'(?P<attribute>\w{2,7}):\s*(?P<value>[0-9a-zA-Z\\/*=+.-]+),?'
+
+    index = index + 1
+    while index < len(lines):
+        if re.match(rgx_show_inventory, lines[index]):
+            index = index + 1
+            continue
+        elif re.match(rgx_host, lines[index]):
+            break
+
+        line = lines[index]
+        match_l1 = re.findall(rgx_att_val_l1, lines[index])
+        match_l2 = re.findall(rgx_att_val_l2, lines[index])
+
+        if line_no == 1 and match_l1:
+            for att in match_l1:
+                if att[0].strip() and att[1].strip():
+                    module[att[0].strip()] = att[1].strip()
+            line_no = 2
+
+        elif line_no == 2 and match_l2:
+            for att in match_l2:
+                if att[0].strip() and att[1].strip():
+                    module[att[0].strip()] = att[1].strip()
+            line_no = 1
+
+        elif not lines[index].strip() and module:
+            # print(module)
+            insert_to_db('appliance_module', 'name, description, pid, vid, serial, app_id',
+                         [
+                             module['NAME'] if ('NAME' in module and module['NAME']) else "",
+                             module['DESCR'] if ('DESCR' in module and module['DESCR']) else "",
+                             module['PID'] if ('PID' in module and module['PID']) else "",
+                             module['VID'] if ('VID' in module and module['VID']) else "",
+                             module['SN'] if ('SN' in module and module['SN']) else "",
+                             sw_id
+                         ])
+            module = {}
+            number_of_modules = number_of_modules + 1
+        else:
+            if print_ignore_break:
+                print('Invalid line ({0}) in show inventory: "{1}"'.format(index, lines[index]))
+
+        index = index + 1
+    print('Number of number_of_modules found: {0}'.format(number_of_modules))
+    return index
+
+
+def save_inventory(out_file):
+    """
+    name, description, pid, vid, serial
+    :param out_file:
+    :return:
+    """
+    qr = do_query('select appliance.hostname, appliance_module.name, appliance_module.description, '
+                  'appliance_module.pid, appliance_module.vid, appliance_module.serial '
+                  'from appliance_module '
+                  'join appliance on appliance.app_id = appliance_module.app_id')
+    if qr:
+        with open(out_file, 'w+') as f:
+            f.write('Hostname,Name,Description,PID,VID,Serial\n')
+            for row in qr:
+                f.write('{0},{1},{2},{3},{4},{5}\n'.format(row[0], row[1], row[2], row[3], row[4], row[5]))
+
+
+def parse_log_file(log_file, site_id):
+    ios_ver = 'ios'
+
+    hostname = ''
+    sw_id = None
+    vrfs = []
+    vrf_rt_to_name = {}
+    with open(log_file, "r+b") as f:
+        data = f.read()
+        # For converting from UTF-8 BOM to UTF-8
+        data = data.decode("utf-8-sig")
+        lines = data.splitlines()
+
+        i = 0
+        while i < len(lines):
+
+            if not hostname and re.match(rgx_host, lines[i]):
+                # get hostname from the CLI prompt
+
+                hostname = re.match(rgx_host, lines[i])['hostname']
+
+                sw_id = insert_to_db('appliance', 'hostname, site_id', [hostname, site_id])
+                match = re.match(r'\s*((\w:)?(.+?[\\/]{1,2})*)(?P<name>(?P<num>\d*)\s*(.+?)(\.\w+))', log_file)
+
+                insert_to_db('log_file',
+                             'filename, file_text, app_id, importance',
+                             [match['name'], str(data), sw_id, int(match['num']) if match['num'] else 0])
+                if data:
+                    del data
+
+            if re.match(rgx_show_run_sec, lines[i]):
+                i = i + 1
+
+                while i < len(lines):
+                    if not hostname and re.match(r'\s*hostname\s*(?P<hostname>.+)', lines[i]):
+                        # match hostname from hostname in the running-config
+
+                        hostname = re.match(r'\s*hostname\s*(?P<hostname>.+)', lines[i])['hostname']
+
+                        sw_id = insert_to_db('appliance', 'hostname, site_id', [hostname, site_id])
+                        match = re.match(r'\s*((\w:)?(.+?[\\/]{1,2})*)(?P<name>(?P<num>\d*)\s*(.+?)(\.\w+))', log_file)
+
+                        insert_to_db('log_file',
+                                     'filename, file_text, app_id, importance',
+                                     [match['name'], str(data), sw_id, int(match['num']) if match['num'] else 0])
+                        if data:
+                            del data
+
+                        i = i + 1
+
+                    if re.match(rgx_ios_ip_vrf, lines[i]) and not re.match(rgx_vrf_fwd, lines[i]):
+                        # add_family 'IPv4' id = 1
+                        # imp_exp = [exports, imports]
+
+                        vrf_name = re.match(rgx_ios_ip_vrf, lines[i])['vrf_name']
+                        rd, imp_exp, description, i = parse_vrf(lines, i, vrf_name, vrf_rt_to_name)
+                        if sw_id:
+                            insert_vrf_to_db(sw_id, vrf_name, rd, imp_exp, description)
+                        else:
+                            vrfs.append([sw_id, vrf_name, rd, imp_exp, description])
+
+                    elif re.match(rgx_ios_vrf_def, lines[i]):
+                        # imp_exp = [exports, imports, exportsv6, importsv6]
+                        vrf_name = re.match(rgx_ios_vrf_def, lines[i])['vrf_name']
+                        rd, imp_exp, description, i = parse_vrf(lines, i, vrf_name, vrf_rt_to_name, vrf_def=True)
+                        if sw_id:
+                            insert_vrf_to_db(sw_id, vrf_name, rd, imp_exp, description)
+                        else:
+                            vrfs.append([sw_id, vrf_name, rd, imp_exp, description])
+
+                    elif re.match(rgx_xr_vrf, lines[i]):
+                        # IOS XR VRF configuration doesn't include RD
+                        # RD configured under BGP VRF section "PE_to_CE"
+                        ios_ver = 'xr'
+                        vrf_name = re.match(rgx_xr_vrf, lines[i])['vrf_name']
+                        imp_exp, description, i = parse_vrf(lines, i, vrf_name, vrf_rt_to_name, crs_asr=True)
+
+                        # rd will be replace with ""
+                        # after parsing BGP section, rd should be updated
+
+                        if sw_id:
+                            insert_vrf_to_db(sw_id, vrf_name, "", imp_exp, description)
+                        else:
+                            vrfs.append([sw_id, vrf_name, "", imp_exp, description])
+
+                    elif re.match(r'\s*vlan\s+(?P<id>\d+(-\d+)?(,\d+(-\d+)?)*)', lines[i]):
+                        i = parse_vlan(lines, i, sw_id)
+
+                    elif re.match(rgx_ios_static_route, lines[i]):
+                        i = parse_static_route(lines, i, sw_id)
+
+                    elif re.match(rgx_xr_router_static, lines[i]):
+                        i = parse_xr_static_route(lines, i, sw_id)
+
+                    elif re.match(rgx_interface, lines[i]):
+                        i = parse_all_interface_type(sw_id, ios_ver, lines, i)
+
+                    elif re.match(r'router\s+bgp\s+(?P<as>\d+([.]\d+)?)', lines[i]):
+                        if ios_ver == 'xr':
+                            i = parse_xr_router_bgp(lines, i, sw_id)
+
+                    elif re.match(rgx_host, lines[i]) or re.match(r'end\s*$', lines[i]):
+                        break
+
+                    else:
+                        i = i + 1
+
+                if len(vrfs) > 0:
+                    for vrf in vrfs:
+                        insert_vrf_to_db(vrf[0], vrf[1], vrf[2], vrf[3], vrf[4])
+                    vrfs = []
+
+            elif re.match(rgx_show_vlan_sec, lines[i]):
+                i = parse_show_vlan(lines, i, sw_id)
+
+            elif re.match(rgx_cdp_nei_sec, lines[i]):
+                i = parse_cdp_nei(lines, i, sw_id)
+
+            elif re.match(rgx_show_inventory, lines[i]):
+                i = parse_show_inventory(lines, i, sw_id)
+
+            else:
+                # print('Unknown line: ', lines[i])
+                i = i + 1
+        if not hostname:
+            print("Hostname couldn't be found for app_id: {0}".format(sw_id))
+
+
 # @profile
 def main():
-    path = 'configs\\'
+    path = 'configs\\RC\\'
     file_extension = '.log'
 
     db_dump_file = 'db_dump.sql'
@@ -2059,6 +2664,7 @@ def main():
 
         file_list.sort(key=natural_sort)
         for file_name in file_list:
+            print(file_name)
             site_id = insert_to_db('site', 'name', re.match(r'\s*\d*\s*(?P<name>.+)', file_name)['name'])
             parse_log_file(path + file_name + file_extension, site_id)
 
@@ -2069,6 +2675,8 @@ def main():
 
         headers = ['VRF Name', 'Export RT', 'Interface', 'IP Address (Primary/VIP)', 'Interface Description']
         save_int_to_excel(vlan_wb, headers)
+        save_inventory(path + 'Inventory.csv')
+
         vrf_wb.save(path + out_file_name)
         vlan_wb.save(path + 'VRF_VLANs.xlsx')
 
@@ -2079,6 +2687,7 @@ def main():
 
 
 if __name__ == '__main__':
-    start = time.clock()
+    start = time.process_time()
     main()
-    print('Time elapsed {:3.2f} seconds'.format(time.clock() - start))
+    # parse_show_inventory()
+    print('Time elapsed {:3.2f} seconds'.format(time.process_time() - start))

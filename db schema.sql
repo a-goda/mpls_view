@@ -28,6 +28,7 @@ CREATE TABLE static_route (
   next_hop_ip integer,
   next_hop_int integer,
   vrf_id integer,
+  to_vrf_id integer,  -- static route pointing to next hop in a different VRF
   subnet_id integer,
   ad_distance integer,
   name text,
@@ -68,7 +69,7 @@ CREATE TABLE vlan (
   vlan_no integer,
   name text,
   app_id integer,
-  exist integer
+  exist integer -- to flag a vlan that L2 config for is not available, but configured under interface. Except L3 sub_int
 );
 
 CREATE TABLE int_vlan (
@@ -130,6 +131,7 @@ CREATE TABLE pending_interface (
   description text,
   mode text,
   member_of integer,
+  group_id integer,
   app_id integer,
   vrf_name text,
   tunnel_id integer,
@@ -166,9 +168,20 @@ CREATE TABLE pend_static_route (
   next_hop_int_type text,
   next_hop_int_number text,
   vrf_name text,
+  to_vrf_name text,  -- static route pointing to next hop in a different VRF
   subnet_id integer,
   ad_distance integer,
   name text,
   add_fam_id integer,
   app_id integer
+);
+
+CREATE TABLE appliance_module (
+    app_mod_id integer primary key,
+    app_id integer,
+    name text,
+    description text,
+    pid text,
+    vid text,
+    serial text
 );
